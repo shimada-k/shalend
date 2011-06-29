@@ -251,10 +251,10 @@ int lbprofile_init(void)
 	fseek(flb, (long)sizeof(struct lbprofile_hdr), SEEK_SET);	/* make a header space */
 
 	signal(SIGUSR1, lbprofile_handler);
-	syslog(LOG_DEBUG, "SETHNDLR:%d IOC_SETPID:%d\n", IOC_SETHNDLR, IOC_SETPID);
+	syslog(LOG_DEBUG, "SETHNDLR:%d IOC_SETPID:%d\n", IOC_SETSIGNO, IOC_SETPID);
 
-	if(ioctl(dev, IOC_SETHNDLR, SIGUSR1) < 0){
-		syslog(LOG_ERR, "%s IOC_SETHNDLR", log_err_prefix(lbprofile_init));
+	if(ioctl(dev, IOC_SETSIGNO, SIGUSR1) < 0){
+		syslog(LOG_ERR, "%s IOC_SETSIGNO", log_err_prefix(lbprofile_init));
 		return 1;
 	}
 
