@@ -146,8 +146,6 @@ void lbprofile_final(void)
 	unsigned int i, piece;
 	ssize_t r_size;
 
-	//lbprofile_timer_sync();
-
 	if(ioctl(dev, IOC_USEREND_NOTIFY, &piece) < 0){
 		syslog(LOG_ERR, "%s ioctl(2) failed", log_err_prefix(lbprofile_final));
 		lbprofile_free_resources();
@@ -202,15 +200,15 @@ void lbprofile_final(void)
 	put_hdr(&hdr);
 
 	analyze_lb_and_store(pp, ho);
-	syslog(LOG_DEBUG, "analyze_lb_and_store() successfully done\n");
+	//syslog(LOG_DEBUG, "analyze_lb_and_store() successfully done\n");
 
 	output_csv_pp(csv, pp);
-	syslog(LOG_DEBUG, "output_csv_pp() successfully done\n");
+	//syslog(LOG_DEBUG, "output_csv_pp() successfully done\n");
 	output_csv_ho(csv, ho);
-	syslog(LOG_DEBUG, "output_csv_ho() successfully done\n");
+	//syslog(LOG_DEBUG, "output_csv_ho() successfully done\n");
 
 	lbprofile_free_resources();
-	syslog(LOG_DEBUG, "lbprofile_free_resources() successfully done\n");
+	//syslog(LOG_DEBUG, "lbprofile_free_resources() successfully done\n");
 }
 
 void lbprofile_handler(int sig)
