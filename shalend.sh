@@ -35,9 +35,13 @@ shalen_final()
 #shalendが完全に停止するまで待つ
 	sleep 10
 
+	cd "$SHALEND_WD"
+
+	./analb
+
 #データファイルをディレクトリに移動
-	mv "$OUTPUT_CSV" "$DATA_DIR""$1"TASK_["$ELAPSE"].csv
-	mv "$OUTPUT_LB" "$DATA_DIR""$1"TASK_["$ELAPSE"].lb
+	mv "$OUTPUT_CSV" "$DATA_DIR""$1"FB_"$ELAPSE".csv
+	mv "$OUTPUT_LB" "$DATA_DIR""$1"FB_"$ELAPSE".lb
 
 #sarファイルから時間範囲指定してテキストファイルに出力する
 	sar -A -s "$2" -e `date "+%T"` -f "$DATA_DIR"output.sar > "$DATA_DIR""$1"TASK_["$ELAPSE"].txt
@@ -75,36 +79,9 @@ mkdir "$DATA_DIR"
 #sarで2秒ごとにシステム情報の取得開始（6400秒 == 3時間）
 sar -P ALL 2 36000 -o "$DATA_DIR"output.sar > /dev/null &
 
-shalen_exec 15
-shalen_exec 16
-shalen_exec 17
-shalen_exec 18
-shalen_exec 19
-shalen_exec 20
-shalen_exec 21
-#shalen_exec 22
-#shalen_exec 23
-#shalen_exec 24
-#shalen_exec 25
-#shalen_exec 26
-#shalen_exec 27
-#shalen_exec 28
-#shalen_exec 29
-#shalen_exec 30
-#shalen_exec 31
-#shalen_exec 32
-#shalen_exec 33
-#shalen_exec 34
-#shalen_exec 35
-#shalen_exec 36
-#shalen_exec 37
-#shalen_exec 38
-#shalen_exec 39
-#shalen_exec 40
-#shalen_exec 41
-#shalen_exec 42
-#shalen_exec 43
-#shalen_exec 44
-#shalen_exec 45
-#shalen_exec 46
-#shalen_exec 48
+#15から1づつseq(1)の第3引数までループ
+for i in `seq 15 1 15`
+do
+    shalen_exec "$i"
+done
+
