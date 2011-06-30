@@ -258,6 +258,11 @@ int lbprofile_init(void)
 		return 1;
 	}
 
+	if(ioctl(dev, IOC_SETGRAN, GRAN_LB) < 0){
+		syslog(LOG_ERR, "%s IOC_SETGRAN", log_err_prefix(lbprofile_init));
+		return 1;
+	}
+
 	if(ioctl(dev, IOC_SETPID, (int)getpid()) < 0){
 		syslog(LOG_ERR, "%s IOC_SETPID", log_err_prefix(lbprofile_init));
 		return 1;
