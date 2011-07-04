@@ -125,12 +125,6 @@ void lbprofile_handler(int sig)
 		exit(EXIT_FAILURE);
 	}
 
-	for(i = 0; i < GRAN_LB; i++){
-		//printf("pid:%d, vruntime:%llu, src_cpu:%d, dst_cpu:%d\n", hndlr_buf[i].pid, hndlr_buf[i].vruntime, 
-			//hndlr_buf[i].src_cpu, hndlr_buf[i].dst_cpu);
-		;
-	}
-
 	if(fwrite(hndlr_buf, sizeof(struct lbprofile), GRAN_LB, flb) != GRAN_LB){
 		lbprofile_free_resources();
 		syslog(LOG_ERR, "%s fwrite(3) failed", log_err_prefix(lbprofile_handler));

@@ -44,7 +44,7 @@ shalen_final()
 	mv "$OUTPUT_LB" "$DATA_DIR""$1"FB_"$ELAPSE".lb
 
 #sarファイルから時間範囲指定してテキストファイルに出力する
-	sar -A -s "$2" -e `date "+%T"` -f "$DATA_DIR"output.sar > "$DATA_DIR""$1"TASK_["$ELAPSE"].txt
+	sar -A -s "$2" -e `date "+%T"` -f "$DATA_DIR"output.sar > "$DATA_DIR""$1"FB_"$ELAPSE".txt
 
 #次回のために掃除
 	cd "$KERNEL_TREE"
