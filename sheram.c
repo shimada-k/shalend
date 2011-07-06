@@ -51,19 +51,17 @@ void buf2cpu_val(char *buf, unsigned long long cpu_val[])
 	p = strtok(buf, ",");
 	cpu_val[idx] = atoll(p);
 	idx++;
-	//puts(p);
 
 	while (p != NULL && idx < nr_cpus) {
 		p = strtok(NULL, ",");
 		if(p != NULL){
 			cpu_val[idx] = atoll(p);
 			idx++;
-			//puts(tp);
 		}
 	}
 }
 
-/* add entry to entry_per_time */
+/* コンマ区切り文字列データを数値に変換してflat_recordsに代入する関数 */
 void add_record(char *buf, enum sheram param)
 {
 	unsigned long long cpu_val[nr_cpus];
@@ -83,6 +81,7 @@ void add_record(char *buf, enum sheram param)
 	}
 }
 
+/* /proc/paramsからデータをとってくる関数。/proc/paramsはこの関数の中でopen(2) & close(2) */
 void poll_data(char table[][DATA_LINE_MAX])
 {
 	int i = RQ_RUNNING;
@@ -100,7 +99,7 @@ void poll_data(char table[][DATA_LINE_MAX])
 
 		if(buf[0] == '#' && buf[1] != '#'){
 			fgets(buf, DATA_LINE_MAX, prms);	/* 「;」から始まる行をスキップ */
-			fgets(buf, DATA_LINE_MAX, prms);
+			fgets(buf, DATA_LINE_MAX, prms);	/* データ行を取得 */
 
 			strncpy(table[i], buf, DATA_LINE_MAX);
 			len = strlen(table[i]);
@@ -115,6 +114,7 @@ void poll_data(char table[][DATA_LINE_MAX])
 	}
 }
 
+/* /proc/paramsからパラメータ名を取得する関数 */
 void set_axes(char table[][AXIS_LINE_MAX])
 {
 	int i = RQ_RUNNING;
@@ -134,7 +134,7 @@ void set_axes(char table[][AXIS_LINE_MAX])
 			len = strlen(table[i]);
 			table[i][len - 1] = '\0';	/* parge '\n' */
 
-			if(buf[1] != '#'){
+			if(buf[1] != '#'){	/* 時間軸で追っていかないといけないエントリ。table[i]がcsvファイルに書き込まれる */
 				char tmp[len - 1];
 				int j;
 				for(j = 0; j < len - 1; j++){	/* parge '#' */
@@ -146,7 +146,7 @@ void set_axes(char table[][AXIS_LINE_MAX])
 				puts(table[i]);
 				i++;
 			}
-			else{
+			else{	/* sheramの終了時に読めばいいエントリ */
 				char tmp[len - 1];
 				int j;
 				for(j = 0; j < len - 2; j++){	/* parge double '#' */
@@ -241,16 +241,16 @@ void records2csv(void)
 	unsigned long long (*nested_records)[MAX_RECORD][nr_cpus] = (unsigned long long (*)[MAX_RECORD][nr_cpus])flat_records;	/* 1次元配列を3次元配列にキャスト */
 
 	for(i = RQ_RUNNING; i < DIVIDER; i++){
-		fprintf(csv, "%s,,,\n", axes[i]);	/* section name */
+		fprintf(csv, "%s,,,\n", axes[i]);	/* セクション名を書き込む */
 		for(j = 0; j < nr_cpus; j++){
 			fprintf(csv, ",CPU%d", j);
 		}
 		fprintf(csv, "\n");
 
 		for(j = 0; j < interrupt; j++){
-			fprintf(csv, "%d", j * PERIOD);
+			fprintf(csv, "%d", j * PERIOD);	/* 時間軸を書き込む */
 			for(k = 0; k < nr_cpus; k++){
-				fprintf(csv, ",%llu", nested_records[i][j][k]);
+				fprintf(csv, ",%llu", nested_records[i][j][k]);	/* 値を書き込む */
 			}
 			fprintf(csv, "\n");
 		}
@@ -276,7 +276,7 @@ void *sheram_worker(void *arg)
 		}
 		interrupt++;
 
-		if(tos == LBPROFILE_STOPPED){
+		if(tos == SIGTERM_RECEPT){
 			break;
 		}
 

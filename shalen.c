@@ -72,7 +72,6 @@ void shalen_final(void)
 	shalen_free_resources();
 
 	syslog(LOG_NOTICE, "SIGTERM accepted.");
-	syslog(LOG_NOTICE, "stopping shalend.");
 }
 
 int main(int argc, char *argv[])
@@ -147,7 +146,7 @@ int main(int argc, char *argv[])
 	pthread_join(sheram, NULL);
 	pthread_join(lbprofile, NULL);
 
-	if(tos == SHERAM_STOPPED){
+	if(tos == LBPROFILE_STOPPED){
 		syslog(LOG_NOTICE, "stopping shalend");
 		shalen_final();
 	}

@@ -33,18 +33,18 @@ shalen_final()
 	fi
 
 #shalendが完全に停止するまで待つ
-	sleep 10
+	sleep 15
 
 	cd "$SHALEND_WD"
 
 	./analb
 
 #データファイルをディレクトリに移動
-	mv "$OUTPUT_CSV" "$DATA_DIR""$1"FB_"$ELAPSE".csv
-	mv "$OUTPUT_LB" "$DATA_DIR""$1"FB_"$ELAPSE".lb
+	mv "$OUTPUT_CSV" "$DATA_DIR""$1"_"$ELAPSE".csv
+	mv "$OUTPUT_LB" "$DATA_DIR""$1"_"$ELAPSE".lb
 
 #sarファイルから時間範囲指定してテキストファイルに出力する
-	sar -A -s "$2" -e `date "+%T"` -f "$DATA_DIR"output.sar > "$DATA_DIR""$1"FB_"$ELAPSE".txt
+	sar -A -s "$2" -e `date "+%T"` -f "$DATA_DIR"output.sar > "$DATA_DIR""$1"_"$ELAPSE".txt
 
 #次回のために掃除
 	cd "$KERNEL_TREE"
@@ -80,7 +80,7 @@ mkdir "$DATA_DIR"
 sar -P ALL 2 36000 -o "$DATA_DIR"output.sar > /dev/null &
 
 #15から1づつseq(1)の第3引数までループ
-for i in `seq 15 1 15`
+for i in `seq 15 1 17`
 do
     shalen_exec "$i"
 done

@@ -54,7 +54,7 @@ void put_hdr(struct lbprofile_hdr *hdr)
 
 void lbprofile_final(void)
 {
-	unsigned int i, piece;
+	unsigned int piece;
 	ssize_t r_size;
 
 	if(ioctl(dev, IOC_USEREND_NOTIFY, &piece) < 0){
@@ -95,11 +95,6 @@ void lbprofile_final(void)
 			syslog(LOG_ERR, "%s read(2) failed. lbentries was not loaded r_size is %d\n", log_err_prefix(lbprofile_final), (int)r_size);
 		}
 
-		for(i = 0; i < tip; i++){
-			syslog(LOG_DEBUG, "pid:%d, src_cpu:%d, dst_cpu:%d", hndlr_buf[i].pid, 
-				hndlr_buf[i].src_cpu, hndlr_buf[i].dst_cpu);
-		}
-
 		if(fwrite(hndlr_buf, sizeof(struct lbprofile), tip, flb) != tip){
 			syslog(LOG_ERR, "%s fwrite(3) failed.", log_err_prefix(lbprofile_final));
 		}
@@ -116,7 +111,6 @@ void lbprofile_final(void)
 
 void lbprofile_handler(int sig)
 {
-	int i;
 	ssize_t s_read;
 
 	if((s_read = read(dev, hndlr_buf, sizeof(struct lbprofile) * GRAN_LB)) != sizeof(struct lbprofile) * GRAN_LB){
@@ -146,7 +140,7 @@ int lbprofile_init(void)
 	fseek(flb, (long)sizeof(struct lbprofile_hdr), SEEK_SET);	/* make a header space */
 
 	signal(SIGUSR1, lbprofile_handler);
-	syslog(LOG_DEBUG, "SETHNDLR:%d IOC_SETPID:%d\n", IOC_SETSIGNO, IOC_SETPID);
+	syslog(LOG_DEBUG, "IOC_SETSIGNO:%d IOC_SETPID:%d\n", IOC_SETSIGNO, IOC_SETPID);
 
 	if(ioctl(dev, IOC_SETSIGNO, SIGUSR1) < 0){
 		syslog(LOG_ERR, "%s IOC_SETSIGNO", log_err_prefix(lbprofile_init));
@@ -174,7 +168,7 @@ void *lbprofile_worker(void *arg)
 	}
 
 	while(1){
-		if(tos == SIGTERM_RECEPT){
+		if(tos == SHERAM_STOPPED){
 			break;
 		}
 		/* will recieve signal SIGUSR1, and call lbprofile_handler() */
