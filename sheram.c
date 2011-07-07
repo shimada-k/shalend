@@ -18,8 +18,9 @@ int sheram_alloc_resources(void)
 	return 0;
 }
 
-void sheram_free_resources(void)
+void sheram_free_resources(const char *called)
 {
+	syslog(LOG_NOTICE, "%s calls sheram_free_resources()\n", called);
 	free(flat_records);
 }
 
@@ -40,7 +41,7 @@ void sheram_final(void)
 	records2csv();
 	nr_load_balance2csv();
 
-	sheram_free_resources();
+	sheram_free_resources(__func__);
 }
 
 void buf2cpu_val(char *buf, unsigned long long cpu_val[])
@@ -112,6 +113,7 @@ void poll_data(char table[][DATA_LINE_MAX])
 		syslog(LOG_ERR, "%s cannot close /proc/params", log_err_prefix(poll_data));
 		exit(EXIT_FAILURE);
 	}
+	puts("poll_data done");
 }
 
 /* /proc/paramsからパラメータ名を取得する関数 */
@@ -269,24 +271,26 @@ void *sheram_worker(void *arg)
 	}
 
 	while(1){
-		poll_data(data_table);
-
-		for(i = RQ_RUNNING; i < DIVIDER; i++){
-			add_record(data_table[i], i);
-		}
-		interrupt++;
-
 		if(tos == SIGTERM_RECEPT){
 			break;
 		}
+		else{
+			poll_data(data_table);
 
-		sleep(PERIOD);	/* PERIOD秒スリープ */
+			for(i = RQ_RUNNING; i < DIVIDER; i++){
+				add_record(data_table[i], i);
+			}
+			interrupt++;
+
+			sleep(PERIOD);	/* PERIOD秒スリープ */
+		}
 	}
 
 finalize:
 	syslog(LOG_NOTICE, "stopping sheram");
 	sheram_final();
 	tos = SHERAM_STOPPED;
+	barrier();
 
 	pthread_exit(NULL) ;
 }

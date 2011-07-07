@@ -6,6 +6,7 @@ int nr_cpus;
 
 enum thread_operation_status tos = NR_STATUS_MAX;
 sigset_t ss;
+int debug;	/* デバッグモードなら1 */
 
 void *sheram_worker(void *arg);
 void *lbprofile_worker(void *arg);
@@ -25,8 +26,9 @@ void shalen_alloc_resources(void)
 	}
 }
 
-void shalen_free_resources(void)
+void shalen_free_resources(const char *called)
 {
+	syslog(LOG_NOTICE, "%s calls shalen_free_resources()\n", called);
 	closelog();
 
 	if(fclose(csv) == EOF){
@@ -43,7 +45,9 @@ int shalen_init(void)
 
 	openlog("shalend", LOG_PID, LOG_DAEMON);
 
-	daemon(0, 0);	/* デーモン化　これ以降は子プロセスで実行される */
+	if(debug == 0){
+		daemon(0, 0);	/* デーモン化　これ以降は子プロセスで実行される */
+	}
 
 	snprintf(path, PATH_MAX, "%s%s", wd_path, "shalend.pid");
 
@@ -69,9 +73,7 @@ void shalen_final(void)
 	snprintf(pid_path, PATH_MAX, "%sshalend.pid", wd_path);
 	remove(pid_path);	/* remove shalend.pid */
 
-	shalen_free_resources();
-
-	syslog(LOG_NOTICE, "SIGTERM accepted.");
+	shalen_free_resources(__func__);
 }
 
 int main(int argc, char *argv[])
@@ -91,7 +93,7 @@ int main(int argc, char *argv[])
 
 		FILE *wd = NULL;
 
-		if((wd = fopen(&argv[1][8], "r"))){
+		if((wd = fopen(&argv[1][8], "r"))){	/* work_dir="xxx" */
 			fclose(wd);	/* working directry is already exist */
 		}
 		else{
@@ -100,6 +102,27 @@ int main(int argc, char *argv[])
 		}
 		wd_path = &argv[1][8];
 
+		if(shalen_init()){
+			syslog(LOG_ERR, "%sshalen_init() failed", log_err_prefix(main));
+			exit(EXIT_FAILURE);
+		}
+	}
+	else if(argc == 3){
+
+		FILE *wd = NULL;
+
+		if((wd = fopen(&argv[1][8], "r"))){	/* work_dir="xxx" */
+			fclose(wd);	/* working directry is already exist */
+		}
+		else{
+			if(mkdir(&argv[1][8], 0777) == -1)	/* open working directory */
+				exit(EXIT_FAILURE);
+		}
+		wd_path = &argv[1][8];
+
+		if(strcmp(argv[2], "--debug") == 0){
+			debug = 1;
+		}
 		if(shalen_init()){
 			syslog(LOG_ERR, "%sshalen_init() failed", log_err_prefix(main));
 			exit(EXIT_FAILURE);
@@ -138,6 +161,7 @@ int main(int argc, char *argv[])
 			if(signo == SIGTERM){
 				syslog(LOG_NOTICE, "shalend:sigterm recept");
 				tos = SIGTERM_RECEPT;
+				barrier();
 				break;
 			}
 		}

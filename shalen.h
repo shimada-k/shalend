@@ -8,6 +8,8 @@
 #include <sys/stat.h>	/* mkdir(2) */
 #include <signal.h>	/* getpid(2) */
 
+#define barrier() __asm__ __volatile__("": : :"memory")	/* メモリバリア */
+
 #define PARAMS	"/proc/params"
 #define DEFAULT_WD	"/home/shimada/"
 

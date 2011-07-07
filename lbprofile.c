@@ -31,8 +31,9 @@ int lbprofile_alloc_resources(void)
 	return 0;
 }
 
-void lbprofile_free_resources(void)
+void lbprofile_free_resources(const char *called)
 {
+	syslog(LOG_NOTICE, "%s calls lbprofile_free_resources()\n", called);
 	close(dev);
 	fclose(flb);
 	free(hndlr_buf);
@@ -59,7 +60,7 @@ void lbprofile_final(void)
 
 	if(ioctl(dev, IOC_USEREND_NOTIFY, &piece) < 0){
 		syslog(LOG_ERR, "%s ioctl(2) failed", log_err_prefix(lbprofile_final));
-		lbprofile_free_resources();
+		lbprofile_free_resources(__func__);
 		exit(EXIT_FAILURE);
 	}
 	else{
@@ -105,8 +106,8 @@ void lbprofile_final(void)
 
 	put_hdr(&hdr);
 
-	lbprofile_free_resources();
-	//syslog(LOG_DEBUG, "lbprofile_free_resources() successfully done\n");
+	lbprofile_free_resources(__func__);
+	//syslog(LOG_DEBUG, "lbprofile_free_resources(__func__) successfully done\n");
 }
 
 void lbprofile_handler(int sig)
@@ -115,12 +116,12 @@ void lbprofile_handler(int sig)
 
 	if((s_read = read(dev, hndlr_buf, sizeof(struct lbprofile) * GRAN_LB)) != sizeof(struct lbprofile) * GRAN_LB){
 		syslog(LOG_ERR, "%s read(2) failed. lbentries was not loaded s_read = %d\n", log_err_prefix(lbprofile_handler), (int)s_read);
-		lbprofile_free_resources();
+		lbprofile_free_resources(__func__);
 		exit(EXIT_FAILURE);
 	}
 
 	if(fwrite(hndlr_buf, sizeof(struct lbprofile), GRAN_LB, flb) != GRAN_LB){
-		lbprofile_free_resources();
+		lbprofile_free_resources(__func__);
 		syslog(LOG_ERR, "%s fwrite(3) failed", log_err_prefix(lbprofile_handler));
 		exit(EXIT_FAILURE);
 	}
@@ -140,7 +141,7 @@ int lbprofile_init(void)
 	fseek(flb, (long)sizeof(struct lbprofile_hdr), SEEK_SET);	/* make a header space */
 
 	signal(SIGUSR1, lbprofile_handler);
-	syslog(LOG_DEBUG, "IOC_SETSIGNO:%d IOC_SETPID:%d\n", IOC_SETSIGNO, IOC_SETPID);
+	syslog(LOG_DEBUG, "IOC_SETSIGNO:%d IOC_SETGRAN:%d IOC_SETPID:%d\n", IOC_SETSIGNO, IOC_SETGRAN, IOC_SETPID);
 
 	if(ioctl(dev, IOC_SETSIGNO, SIGUSR1) < 0){
 		syslog(LOG_ERR, "%s IOC_SETSIGNO", log_err_prefix(lbprofile_init));
@@ -178,6 +179,8 @@ finalize:
 	syslog(LOG_NOTICE, "stopping lbprofile");
 	lbprofile_final();
 	tos = LBPROFILE_STOPPED;
+	barrier();
+
 
 	pthread_exit(NULL);
 }
