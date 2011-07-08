@@ -5,8 +5,11 @@ char *wd_path;
 int nr_cpus;
 
 enum thread_operation_status tos = NR_STATUS_MAX;
+int death_flag;
 sigset_t ss;
 int debug;	/* デバッグモードなら1 */
+
+pthread_mutex_t	mx;	/* thread_operation_status用のmutex */
 
 void *sheram_worker(void *arg);
 void *lbprofile_worker(void *arg);
@@ -148,6 +151,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	/* スレッドの生成 */
+
 	if(pthread_create(&sheram, NULL, sheram_worker, NULL) != 0){
 		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
 	}
@@ -156,17 +161,21 @@ int main(int argc, char *argv[])
 		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
 	}
 
+	syslog(LOG_NOTICE, "shalen loop starting tos:%d\n", tos);
+
 	while(1){
 		if(sigwait(&ss, &signo) == 0){
 			if(signo == SIGTERM){
-				syslog(LOG_NOTICE, "shalend:sigterm recept");
 				tos = SIGTERM_RECEPT;
+				death_flag = 1;
 				barrier();
+				syslog(LOG_NOTICE, "shalend:sigterm recept tos:%d\n", tos);
 				break;
 			}
 		}
 	}
 
+	syslog(LOG_NOTICE, "shalen loop breaked tos:%d\n", tos);
 	pthread_join(sheram, NULL);
 	pthread_join(lbprofile, NULL);
 

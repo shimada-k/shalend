@@ -270,8 +270,11 @@ void *sheram_worker(void *arg)
 		goto finalize;
 	}
 
+	syslog(LOG_NOTICE, "sheram loop starting tos:%d\n", tos);
+
 	while(1){
-		if(tos == SIGTERM_RECEPT){
+		//if(tos == SIGTERM_RECEPT){
+		if(death_flag == 1){
 			break;
 		}
 		else{
@@ -285,6 +288,8 @@ void *sheram_worker(void *arg)
 			sleep(PERIOD);	/* PERIOD秒スリープ */
 		}
 	}
+
+	syslog(LOG_NOTICE, "sheram loop breaked tos:%d\n", tos);
 
 finalize:
 	syslog(LOG_NOTICE, "stopping sheram");

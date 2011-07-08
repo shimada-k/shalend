@@ -10,6 +10,16 @@
 
 #define barrier() __asm__ __volatile__("": : :"memory")	/* メモリバリア */
 
+#define mb() \
+	__asm__ __volatile__("mb": : :"memory")
+
+#define rmb() \
+	__asm__ __volatile__("mb": : :"memory")
+
+#define wmb() \
+	__asm__ __volatile__("wmb": : :"memory")
+
+
 #define PARAMS	"/proc/params"
 #define DEFAULT_WD	"/home/shimada/"
 
@@ -78,6 +88,7 @@ enum thread_operation_status{
 };
 
 extern enum thread_operation_status tos;
+extern int death_flag;
 
 #define log_err_prefix(func_name)	__FILE__ "::" #func_name
 

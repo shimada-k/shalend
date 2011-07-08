@@ -169,11 +169,15 @@ void *lbprofile_worker(void *arg)
 	}
 
 	while(1){
-		if(tos == SHERAM_STOPPED){
+		sleep(1);
+		//if(tos == SHERAM_STOPPED){
+		if(death_flag == 1){
 			break;
 		}
 		/* will recieve signal SIGUSR1, and call lbprofile_handler() */
 	}
+
+	syslog(LOG_NOTICE, "lbprofile loop breaked tos:%d\n", tos);
 
 finalize:
 	syslog(LOG_NOTICE, "stopping lbprofile");
