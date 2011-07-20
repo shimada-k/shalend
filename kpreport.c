@@ -13,9 +13,8 @@
 
 #include "shalen.h"
 
-#define STR_TAG_MAX	32
-
-#define STR_ENTRY_MAX	160
+#define STR_TAG_MAX		32	/* csvに書き出される際のテーブルの名前の文字列の最大サイズ */
+#define STR_ENTRY_MAX	160	/* /sys以下のファイルん内容を読み込むバッファの最大サイズ */
 
 #define BASE_PATH	"/sys/kernel/kpreport"
 
@@ -25,7 +24,7 @@ int interrupt;
 
 unsigned long long *flat_records;	/* vruntimeが入るので64bit整数 */
 
-struct kp_entry {
+struct kp_entry{
 	FILE *fp;
 	char tag[STR_TAG_MAX];
 	void (*pre_closure)(unsigned long long cpu_val[], int idx);
@@ -112,18 +111,20 @@ int search_sysfs_f(char *base_path, int searched)
 		}
 		else{
 			if(searched){
+				struct kp_entry *ke = &kp_entry_ctl.entries[entry_idx];
+
 				if(strcmp(p->d_name, "nr_lb_mc") == 0 || strcmp(p->d_name, "nr_lb_smt") == 0){
-					snprintf(kp_entry_ctl.entries[entry_idx].tag, sizeof(char) * STR_TAG_MAX, "%s.sub", p->d_name);
-					kp_entry_ctl.entries[entry_idx].pre_closure = sub_record;
+					snprintf(ke->tag, sizeof(char) * STR_TAG_MAX, "%s.sub", p->d_name);
+					ke->pre_closure = sub_record;
 				}
 				else{
-					strncpy(kp_entry_ctl.entries[entry_idx].tag, p->d_name, STR_TAG_MAX);
-					kp_entry_ctl.entries[entry_idx].pre_closure = NULL;
+					strncpy(ke->tag, p->d_name, STR_TAG_MAX);
+					ke->pre_closure = NULL;
 				}
 
-				kp_entry_ctl.entries[entry_idx].fp = fopen(full_path, "r");
+				ke->fp = fopen(full_path, "r");
 
-				setbuf(kp_entry_ctl.entries[entry_idx].fp, NULL);	/* バッファリングをしない */
+				setbuf(ke->fp, NULL);	/* バッファリングをしない */
 
 				entry_idx++;
 			}
@@ -158,8 +159,6 @@ bool kpreport_alloc_resources(void)
 		return false;
 	}
 
-
-
 	search_sysfs_f(BASE_PATH, 1);
 
 	return true;
@@ -167,8 +166,9 @@ bool kpreport_alloc_resources(void)
 
 /*
 	初期化関数
+	返り値　成功：true　失敗：false
 */
-void kpreport_init(void)
+bool kpreport_init(void)
 {
 	int i;
 
@@ -176,16 +176,14 @@ void kpreport_init(void)
 	kp_entry_ctl.nr_entries = search_sysfs_f(BASE_PATH, 0);
 
 	if(kpreport_alloc_resources() == false){
-		exit(EXIT_FAILURE);
+		return false;
 	}
 
 	for(i = 0; i < kp_entry_ctl.nr_entries; i++){	/* debug */
 		puts(kp_entry_ctl.entries[i].tag);
 	}
 
-	if(kp_entry_ctl.entries == NULL){
-		exit(EXIT_FAILURE);
-	}
+	return true;
 }
 
 /*
@@ -220,7 +218,6 @@ bool kpreport_free_resources(void)
 */
 void kpreport_final(void *arg)
 {
-
 	records2csv();
 	
 	if(kpreport_free_resources() == false){
@@ -257,8 +254,8 @@ void buf2cpu_val(char *buf, unsigned long long cpu_val[])
 */
 void add_record(char *buf, int entry_idx)
 {
-	unsigned long long cpu_val[nr_cpus];
 	unsigned int i;
+	unsigned long long cpu_val[nr_cpus];
 	unsigned long long (*nested_records)[MAX_RECORD][nr_cpus] = (unsigned long long (*)[MAX_RECORD][nr_cpus])flat_records;	/* 1次元配列を3次元配列に変換 */
 
 	buf2cpu_val(buf, cpu_val);	/* split buf and substitute cpu_val[] */
@@ -313,7 +310,7 @@ void records2csv(void)
 	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "kpreport.csv");
 
 	if(!(csv = fopen(path, "w+"))){	/* kpreport.lbを作成 */
-		;	/* err */
+		;	/* エラー */
 	}
 
 	for(i = 0; i < kp_entry_ctl.nr_entries; i++){
@@ -336,9 +333,15 @@ void records2csv(void)
 	fclose(csv);
 }
 
+/*
+	kpreportのスレッドルーチン
+	@arg 引数
+*/
 void *kpreport_worker(void *arg)
 {
-	kpreport_init();
+	if(kpreport_init() == false){
+		syslog(LOG_ERR, "%s failed", log_err_prefix(kpreport_init));
+	}
 
 	pthread_cleanup_push(kpreport_final, NULL);
 
@@ -352,22 +355,4 @@ void *kpreport_worker(void *arg)
 	pthread_cleanup_pop(1);
 }
 
-#if 0
-int main(int argc, char *argv[])
-{
-	kpreport_init();
-
-	while(1){
-		interrupt++;
-		read_periodic();
-		sleep(PERIOD);
-	}
-
-	records2csv();
-
-	kpreport_final();
-
-	return 0;
-}
-#endif
 

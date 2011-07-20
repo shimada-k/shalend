@@ -21,13 +21,16 @@ int dev;
 struct lbprofile *hndlr_buf;
 struct lbprofile_hdr hdr;
 
+/*
+	リソースを確保する関数
+*/
 bool lbprofile_alloc_resources(void)
 {
 	char path[STR_PATH_MAX];
 
 	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "lbprofile.lb");
 
-	if(!(flb = fopen(path, "w+"))){	/* output file */
+	if(!(flb = fopen(path, "w+b"))){	/* 出力するファイルを作成 */
 		return false;
 	}
 	if((dev = open("/dev/lbprofile", O_RDONLY)) < 0){
@@ -41,6 +44,10 @@ bool lbprofile_alloc_resources(void)
 	return true;
 }
 
+/*
+	リソースを解放する関数
+	@called 呼び出し元の関数名
+*/
 bool lbprofile_free_resources(const char *called)
 {
 	syslog(LOG_NOTICE, "%s calls lbprofile_free_resources()\n", called);
@@ -58,6 +65,11 @@ bool lbprofile_free_resources(const char *called)
 	return true;
 }
 
+
+/*
+	ヘッダを挿入する関数
+	@hdr ヘッダのデータのアドレス
+*/
 void put_hdr(struct lbprofile_hdr *hdr)
 {
 	long pos;
@@ -72,6 +84,10 @@ void put_hdr(struct lbprofile_hdr *hdr)
 	fseek(flb, pos, SEEK_SET);	/* 記録されたオフセットに戻す */
 }
 
+/*
+	終了時に呼ばれる関数
+	@arg 引数 pthread_cleanup_pushで指定される
+*/
 void lbprofile_final(void *arg)
 {
 	unsigned int piece;
@@ -128,9 +144,12 @@ void lbprofile_final(void *arg)
 	if(lbprofile_free_resources(__func__) == false){
 		exit(EXIT_FAILURE);
 	}
-	//syslog(LOG_DEBUG, "lbprofile_free_resources(__func__) successfully done\n");
 }
 
+/*
+	カーネルからのシグナルのハンドラ関数
+	@sig 仕様
+*/
 void lbprofile_handler(int sig)
 {
 	ssize_t s_read;
@@ -152,40 +171,48 @@ void lbprofile_handler(int sig)
 	lseek(dev, 0, SEEK_SET);
 }
 
-/* 返り値　成功：0　失敗：1 */
-int lbprofile_init(void)
+/*
+	初期化関数
+	返り値　成功：true　失敗：false
+*/
+bool lbprofile_init(void)
 {
 	if(lbprofile_alloc_resources() == false){
-		exit(EXIT_FAILURE);
+		syslog(LOG_ERR, "%s failed", log_err_prefix(lbprofile_alloc_resources));
+		return false;
 	}
 
-	fseek(flb, (long)sizeof(struct lbprofile_hdr), SEEK_SET);	/* make a header space */
+	fseek(flb, (long)sizeof(struct lbprofile_hdr), SEEK_SET);	/* ヘッダの分を空けておく */
 
 	signal(SIGUSR1, lbprofile_handler);
 	syslog(LOG_DEBUG, "IOC_SETSIGNO:%d IOC_SETGRAN:%d IOC_SETPID:%d\n", IOC_SETSIGNO, IOC_SETGRAN, IOC_SETPID);
 
 	if(ioctl(dev, IOC_SETSIGNO, SIGUSR1) < 0){
 		syslog(LOG_ERR, "%s IOC_SETSIGNO", log_err_prefix(lbprofile_init));
-		return 1;
+		return false;
 	}
 
 	if(ioctl(dev, IOC_SETGRAN, GRAN_LB) < 0){
 		syslog(LOG_ERR, "%s IOC_SETGRAN", log_err_prefix(lbprofile_init));
-		return 1;
+		return false;
 	}
 
 	if(ioctl(dev, IOC_SETPID, (int)getpid()) < 0){
 		syslog(LOG_ERR, "%s IOC_SETPID", log_err_prefix(lbprofile_init));
-		return 1;
+		return false;
 	}
 
-	return 0;
+	return true;
 }
 
+/*
+	lbprofileのスレッドルーチン
+	@arg 引数
+*/
 void *lbprofile_worker(void *arg)
 {
-	if(lbprofile_init()){
-		syslog(LOG_ERR, "%s lbprofile_init() failed", log_err_prefix(lbprofile_worker));
+	if(lbprofile_init() == false){
+		syslog(LOG_ERR, "%s failed", log_err_prefix(lbprofile_init));
 	}
 
 	pthread_cleanup_push(lbprofile_final, NULL);
@@ -202,8 +229,4 @@ void *lbprofile_worker(void *arg)
 	pthread_cleanup_pop(1);
 
 }
-
-
-
-
 

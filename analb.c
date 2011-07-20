@@ -99,7 +99,6 @@ void analyze_lb_and_store(FILE *flb, unsigned int pp[][nr_cpus], unsigned int ho
 int main(int argc, char *argv[])
 {
 	nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-	//nr_cpus = 8;
 	unsigned int pp[nr_cpus][nr_cpus], ho[MAX_NR_HOLD];
 	FILE *csv = NULL, *flb = NULL;
 
@@ -107,7 +106,7 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	if((flb = fopen("lbprofile.lb", "r")) == NULL){
+	if((flb = fopen("lbprofile.lb", "rb")) == NULL){
 		exit(EXIT_FAILURE);
 	}
 

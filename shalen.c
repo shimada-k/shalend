@@ -13,10 +13,7 @@
 char *wd_path;
 int nr_cpus;
 
-sigset_t ss;
 int debug;	/* デバッグモードなら1 */
-
-pthread_mutex_t	mx;	/* thread_operation_status用のmutex */
 
 void *kpreport_worker(void *arg);
 void *lbprofile_worker(void *arg);
@@ -76,6 +73,7 @@ void shalen_final(void)
 int main(int argc, char *argv[])
 {
 	int ret, signo;
+	sigset_t ss;
 	pthread_t kpreport, lbprofile;
 
 	if(argc == 1){
