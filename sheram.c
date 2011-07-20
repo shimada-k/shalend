@@ -113,7 +113,8 @@ void poll_data(char table[][DATA_LINE_MAX])
 		syslog(LOG_ERR, "%s cannot close /proc/params", log_err_prefix(poll_data));
 		exit(EXIT_FAILURE);
 	}
-	puts("poll_data done");
+
+	syslog(LOG_ERR, "poll_data done, death_flag:%d\n", death_flag);		/* Debug */
 }
 
 /* /proc/paramsからパラメータ名を取得する関数 */

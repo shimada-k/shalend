@@ -1,5 +1,5 @@
 # Makefile
-objs = shalen.o sheram.o lbprofile.o
+objs = shalen.o kpreport.o lbprofile.o
 
 shalend: Makefile shalen.h $(objs)
 	cc -Wall -o shalend $(objs) -lpthread
@@ -7,8 +7,8 @@ shalend: Makefile shalen.h $(objs)
 shalen.o: shalen.c
 	cc -Wall -c shalen.c
 
-sheram.o: sheram.c
-	cc -Wall -c sheram.c
+kpreport.o: kpreport.c
+	cc -Wall -c kpreport.c
 
 lbprofile.o: lbprofile.c
 	cc -Wall -c lbprofile.c

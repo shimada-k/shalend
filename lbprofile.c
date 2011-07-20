@@ -1,5 +1,17 @@
+#include <stdio.h>
+#include <string.h>
+#include <syslog.h>
+#include <stdlib.h>	/* calloc(3), exit(3), EXIT_SUCCESS */
+#include <pthread.h>	/* pthread_exit(3), pthread_join(3), pthread_create(3) */
+#include <unistd.h>	/* daemon(3), sleep(3) */
+#include <sys/types.h>
+#include <sys/stat.h>	/* mkdir(2) */
+#include <signal.h>	/* getpid(2) */
+
 #include <fcntl.h>
 #include <sys/ioctl.h>
+
+#include <stdbool.h>
 
 #include "shalen.h"
 #include "lbprofile.h"
@@ -11,32 +23,41 @@ struct lbprofile_hdr hdr;
 
 extern char *wd_path;
 
-int lbprofile_alloc_resources(void)
+bool lbprofile_alloc_resources(void)
 {
-	char path[PATH_MAX];
+	char path[STR_PATH_MAX];
 
-	snprintf(path, PATH_MAX, "%s%s", wd_path, "output.lb");
+	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "output.lb");
 
 	if(!(flb = fopen(path, "w+"))){	/* output file */
-		return 1;
+		return false;
 	}
 	if((dev = open("/dev/lbprofile", O_RDONLY)) < 0){
-		return 1;
+		return false;
 	}
 
 	if(!(hndlr_buf = calloc(GRAN_LB, sizeof(struct lbprofile)))){
-		return 1;
+		return false;
 	}
 
-	return 0;
+	return true;
 }
 
-void lbprofile_free_resources(const char *called)
+bool lbprofile_free_resources(const char *called)
 {
 	syslog(LOG_NOTICE, "%s calls lbprofile_free_resources()\n", called);
-	close(dev);
-	fclose(flb);
+
+	if(close(dev) < 0){
+		return false;
+	}
+
+	if(fclose(flb) != 0){
+		return false;
+	}
+
 	free(hndlr_buf);
+
+	return true;
 }
 
 void put_hdr(struct lbprofile_hdr *hdr)
@@ -53,7 +74,7 @@ void put_hdr(struct lbprofile_hdr *hdr)
 	fseek(flb, pos, SEEK_SET);	/* 記録されたオフセットに戻す */
 }
 
-void lbprofile_final(void)
+void lbprofile_final(void *arg)
 {
 	unsigned int piece;
 	ssize_t r_size;
@@ -106,7 +127,9 @@ void lbprofile_final(void)
 
 	put_hdr(&hdr);
 
-	lbprofile_free_resources(__func__);
+	if(lbprofile_free_resources(__func__) == false){
+		exit(EXIT_FAILURE);
+	}
 	//syslog(LOG_DEBUG, "lbprofile_free_resources(__func__) successfully done\n");
 }
 
@@ -134,8 +157,8 @@ void lbprofile_handler(int sig)
 /* 返り値　成功：0　失敗：1 */
 int lbprofile_init(void)
 {
-	if(lbprofile_alloc_resources()){
-		return 1;
+	if(lbprofile_alloc_resources() == false){
+		exit(EXIT_FAILURE);
 	}
 
 	fseek(flb, (long)sizeof(struct lbprofile_hdr), SEEK_SET);	/* make a header space */
@@ -165,28 +188,21 @@ void *lbprofile_worker(void *arg)
 {
 	if(lbprofile_init()){
 		syslog(LOG_ERR, "%s lbprofile_init() failed", log_err_prefix(lbprofile_worker));
-		goto finalize;
 	}
+
+	pthread_cleanup_push(lbprofile_final, NULL);
 
 	while(1){
 		sleep(1);
-		//if(tos == SHERAM_STOPPED){
-		if(death_flag == 1){
-			break;
-		}
+		pthread_testcancel();
 		/* will recieve signal SIGUSR1, and call lbprofile_handler() */
 	}
 
-	syslog(LOG_NOTICE, "lbprofile loop breaked tos:%d\n", tos);
-
-finalize:
-	syslog(LOG_NOTICE, "stopping lbprofile");
-	lbprofile_final();
-	tos = LBPROFILE_STOPPED;
-	barrier();
-
+	syslog(LOG_NOTICE, "lbprofile loop breaked\n");
 
 	pthread_exit(NULL);
+	pthread_cleanup_pop(1);
+
 }
 
 

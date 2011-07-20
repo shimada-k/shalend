@@ -1,25 +1,33 @@
+#include <stdio.h>
+#include <string.h>
+#include <syslog.h>
+#include <stdlib.h>	/* calloc(3), exit(3), EXIT_SUCCESS */
+#include <pthread.h>	/* pthread_exit(3), pthread_join(3), pthread_create(3) */
+#include <unistd.h>	/* daemon(3), sleep(3) */
+#include <sys/types.h>
+#include <sys/stat.h>	/* mkdir(2) */
+#include <signal.h>	/* getpid(2) */
+
 #include "shalen.h"
 
 FILE *csv;
 char *wd_path;
 int nr_cpus;
 
-enum thread_operation_status tos = NR_STATUS_MAX;
-int death_flag;
 sigset_t ss;
 int debug;	/* デバッグモードなら1 */
 
 pthread_mutex_t	mx;	/* thread_operation_status用のmutex */
 
-void *sheram_worker(void *arg);
+void *kpreport_worker(void *arg);
 void *lbprofile_worker(void *arg);
 
 /* initialize data_per_time[] */
 void shalen_alloc_resources(void)
 {
-	char path[PATH_MAX];
+	char path[STR_PATH_MAX];
 
-	snprintf(path, PATH_MAX, "%s%s", wd_path, "output.csv");
+	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "output.csv");
 
 	puts(path);
 
@@ -42,7 +50,7 @@ void shalen_free_resources(const char *called)
 int shalen_init(void)
 {
 	FILE *f = NULL;
-	char path[PATH_MAX];
+	char path[STR_PATH_MAX];
 
 	nr_cpus = sysconf(_SC_NPROCESSORS_CONF);	/* CPU数を取得 */
 
@@ -52,7 +60,7 @@ int shalen_init(void)
 		daemon(0, 0);	/* デーモン化　これ以降は子プロセスで実行される */
 	}
 
-	snprintf(path, PATH_MAX, "%s%s", wd_path, "shalend.pid");
+	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "shalend.pid");
 
 	if(!(f = fopen(path, "w"))){	/* .pidファイルを作成 */
 		syslog(LOG_ERR, "%s cannot open pid file", log_err_prefix(shalen_init));
@@ -71,9 +79,9 @@ int shalen_init(void)
 
 void shalen_final(void)
 {
-	char pid_path[PATH_MAX];
+	char pid_path[STR_PATH_MAX];
 
-	snprintf(pid_path, PATH_MAX, "%sshalend.pid", wd_path);
+	snprintf(pid_path, STR_PATH_MAX, "%sshalend.pid", wd_path);
 	remove(pid_path);	/* remove shalend.pid */
 
 	shalen_free_resources(__func__);
@@ -82,7 +90,7 @@ void shalen_final(void)
 int main(int argc, char *argv[])
 {
 	int ret, signo;
-	pthread_t sheram, lbprofile;
+	pthread_t kpreport, lbprofile;
 
 	if(argc == 1){
 		wd_path = DEFAULT_WD;
@@ -153,7 +161,7 @@ int main(int argc, char *argv[])
 
 	/* スレッドの生成 */
 
-	if(pthread_create(&sheram, NULL, sheram_worker, NULL) != 0){
+	if(pthread_create(&kpreport, NULL, kpreport_worker, NULL) != 0){
 		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
 	}
 
@@ -161,28 +169,25 @@ int main(int argc, char *argv[])
 		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
 	}
 
-	syslog(LOG_NOTICE, "shalen loop starting tos:%d\n", tos);
-
 	while(1){
 		if(sigwait(&ss, &signo) == 0){
 			if(signo == SIGTERM){
-				tos = SIGTERM_RECEPT;
-				death_flag = 1;
-				barrier();
-				syslog(LOG_NOTICE, "shalend:sigterm recept tos:%d\n", tos);
+				syslog(LOG_NOTICE, "shalend:sigterm recept\n");
 				break;
 			}
 		}
 	}
 
-	syslog(LOG_NOTICE, "shalen loop breaked tos:%d\n", tos);
-	pthread_join(sheram, NULL);
+	//syslog(LOG_NOTICE, "shalen loop breaked tos:%d\n", tos);
+
+	pthread_cancel(kpreport);
+	pthread_cancel(lbprofile);
+
+	pthread_join(kpreport, NULL);
 	pthread_join(lbprofile, NULL);
 
-	if(tos == LBPROFILE_STOPPED){
-		syslog(LOG_NOTICE, "stopping shalend");
-		shalen_final();
-	}
+	syslog(LOG_NOTICE, "stopping shalend");
+	shalen_final();
 
 	return 0;
 }
