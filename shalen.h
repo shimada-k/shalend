@@ -23,6 +23,8 @@
 extern FILE *csv;
 extern int nr_cpus;
 
+extern char *wd_path;
+
 enum thread_operation_status{
 	SIGTERM_RECEPT,
 	SHERAM_STOPPED,

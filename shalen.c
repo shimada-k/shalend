@@ -10,7 +10,6 @@
 
 #include "shalen.h"
 
-FILE *csv;
 char *wd_path;
 int nr_cpus;
 
@@ -25,26 +24,13 @@ void *lbprofile_worker(void *arg);
 /* initialize data_per_time[] */
 void shalen_alloc_resources(void)
 {
-	char path[STR_PATH_MAX];
-
-	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "output.csv");
-
-	puts(path);
-
-	if(!(csv = fopen(path, "w"))){	/* open output.csv */
-		syslog(LOG_ERR, "%s cannot open csv file", log_err_prefix(shalen_alloc_resources));
-		exit(EXIT_FAILURE);
-	}
+	;
 }
 
 void shalen_free_resources(const char *called)
 {
 	syslog(LOG_NOTICE, "%s calls shalen_free_resources()\n", called);
 	closelog();
-
-	if(fclose(csv) == EOF){
-		exit(EXIT_FAILURE);
-	}
 }
 
 int shalen_init(void)

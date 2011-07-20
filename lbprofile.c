@@ -21,13 +21,11 @@ int dev;
 struct lbprofile *hndlr_buf;
 struct lbprofile_hdr hdr;
 
-extern char *wd_path;
-
 bool lbprofile_alloc_resources(void)
 {
 	char path[STR_PATH_MAX];
 
-	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "output.lb");
+	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "lbprofile.lb");
 
 	if(!(flb = fopen(path, "w+"))){	/* output file */
 		return false;

@@ -103,11 +103,11 @@ int main(int argc, char *argv[])
 	unsigned int pp[nr_cpus][nr_cpus], ho[MAX_NR_HOLD];
 	FILE *csv = NULL, *flb = NULL;
 
-	if((csv = fopen("output.csv", "a")) == NULL){
+	if((csv = fopen("kpreport.csv", "a")) == NULL){
 		exit(EXIT_FAILURE);
 	}
 
-	if((flb = fopen("output.lb", "r")) == NULL){
+	if((flb = fopen("lbprofile.lb", "r")) == NULL){
 		exit(EXIT_FAILURE);
 	}
 

@@ -308,8 +308,13 @@ void records2csv(void)
 	int i, j, k;
 	unsigned long long (*nested_records)[MAX_RECORD][nr_cpus] = (unsigned long long (*)[MAX_RECORD][nr_cpus])flat_records;	/* 1次元配列を3次元配列にキャスト */
 	FILE *csv;
+	char path[STR_PATH_MAX];
 
-	csv = fopen("kpreport.csv", "w");
+	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "kpreport.csv");
+
+	if(!(csv = fopen(path, "w+"))){	/* kpreport.lbを作成 */
+		;	/* err */
+	}
 
 	for(i = 0; i < kp_entry_ctl.nr_entries; i++){
 		fprintf(csv, "%s,,,\n", kp_entry_ctl.entries[i].tag);	/* タグ名を書き込む */
