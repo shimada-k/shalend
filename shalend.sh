@@ -3,8 +3,8 @@
 KERNEL_TREE=/home/shimada/linux-source-2.6.32/
 SHALEND_WD=/home/shimada/shalend/
 CPUINFO=/proc/cpuinfo
-OUTPUT_CSV="$SHALEND_WD"output.csv
-OUTPUT_LB="$SHALEND_WD"output.lb
+OUTPUT_CSV="$SHALEND_WD"kpreport.csv
+OUTPUT_LB="$SHALEND_WD"lbprofile.lb
 DATA_DIR="$SHALEND_WD"data.`date +%y.%m.%d`/
 
 
@@ -33,7 +33,7 @@ shalen_final()
 	fi
 
 #shalendが完全に停止するまで待つ
-	sleep 15
+	sleep 20
 
 	cd "$SHALEND_WD"
 
@@ -80,7 +80,7 @@ mkdir "$DATA_DIR"
 sar -P ALL 2 36000 -o "$DATA_DIR"output.sar > /dev/null &
 
 #15から1づつseq(1)の第3引数までループ
-for i in `seq 15 1 17`
+for i in `seq 15 1 48`
 do
     shalen_exec "$i"
 done

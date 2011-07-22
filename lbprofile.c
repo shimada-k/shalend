@@ -30,7 +30,7 @@ bool lbprofile_alloc_resources(void)
 
 	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "lbprofile.lb");
 
-	if(!(flb = fopen(path, "w+b"))){	/* 出力するファイルを作成 */
+	if(!(flb = fopen(path, "w+b"))){	/* 読み書きバイナリモードでオープン */
 		return false;
 	}
 	if((dev = open("/dev/lbprofile", O_RDONLY)) < 0){

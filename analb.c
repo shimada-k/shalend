@@ -9,24 +9,28 @@ struct lbprofile_hdr hdr;
 int nr_cpus;
 
 /* たらい回し現象をCSVに出力 */
-void output_csv_ho(FILE *csv, unsigned int hold[])
+void output_csv_ho(FILE *csv, unsigned long long hold[])
 {
 	int i;
 
 	fprintf(csv, "hold_officer\n\n");
 
 	for(i = 0; i < MAX_NR_HOLD; i++){
-		fprintf(csv, "%d,", hold[i]);
+		fprintf(csv, "%llu,", hold[i]);
 	}
 	fprintf(csv, "\n\n");
 }
 
 /* ピンポンタスク現象をCSVに出力 */
-void output_csv_pp(FILE *csv, unsigned int map[][nr_cpus])
+void output_csv_pp(FILE *csv, unsigned long long map[][nr_cpus])
 {
 	int i, j;
 
+	puts("hoge");
+
 	fprintf(csv, "ping_pong\n\n");
+
+	puts("hoge2");
 
 	for(i = 0; i < nr_cpus; i++){
 		fprintf(csv, ",CPU%d", i);
@@ -37,8 +41,8 @@ void output_csv_pp(FILE *csv, unsigned int map[][nr_cpus])
 		fprintf(csv, "CPU%d,", i);
 
 		for(j = 0; j < nr_cpus; j++){
-			fprintf(csv, "%d,", map[i][j]);
-			printf("%d,", map[i][j]);
+			fprintf(csv, "%llu,", map[i][j]);
+			printf("%llu,", map[i][j]);
 		}
 
 		fprintf(csv, "\n");
@@ -48,13 +52,13 @@ void output_csv_pp(FILE *csv, unsigned int map[][nr_cpus])
 }
 
 /* *.lbファイルからstruct lbprofileの配列にデータを取り込む関数 */
-void analyze_lb_and_store(FILE *flb, unsigned int pp[][nr_cpus], unsigned int ho[])
+void analyze_lb_and_store(FILE *flb, unsigned long long pp[][nr_cpus], unsigned long long ho[])
 {
 	struct lbprofile lb, nearly;
 	struct pid_loop lo_pp, lo_ho;
 
-	memset(pp, 0, nr_cpus * nr_cpus * sizeof(unsigned int));
-	memset(ho, 0, MAX_NR_HOLD * sizeof(unsigned int));
+	memset(pp, 0, nr_cpus * nr_cpus * sizeof(unsigned long long));
+	memset(ho, 0, MAX_NR_HOLD * sizeof(unsigned long long));
 
 	lo_pp.loop = 0;
 	lo_ho.loop = 0;
@@ -99,24 +103,30 @@ void analyze_lb_and_store(FILE *flb, unsigned int pp[][nr_cpus], unsigned int ho
 int main(int argc, char *argv[])
 {
 	nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-	unsigned int pp[nr_cpus][nr_cpus], ho[MAX_NR_HOLD];
+	//nr_cpus = 8;
+	unsigned long long pp[nr_cpus][nr_cpus], ho[MAX_NR_HOLD];
 	FILE *csv = NULL, *flb = NULL;
 
 	if((csv = fopen("kpreport.csv", "a")) == NULL){
 		exit(EXIT_FAILURE);
 	}
 
+	fprintf(csv, "hogepiyo\n\n");
+
 	if((flb = fopen("lbprofile.lb", "rb")) == NULL){
 		exit(EXIT_FAILURE);
 	}
 
-	analyze_lb_and_store(flb, pp, ho);
-	puts("analyze_lb_and_store() successfully done\n");
+	//analyze_lb_and_store(flb, pp, ho);
+
+	fprintf(csv, "hogehoge\n\n");
+
+	puts("analyze_lb_and_store() successfully done");
 
 	output_csv_pp(csv, pp);
-	puts("output_csv_pp() successfully done\n");
+	puts("output_csv_pp() successfully done");
 	output_csv_ho(csv, ho);
-	puts("output_csv_ho() successfully done\n");
+	puts("output_csv_ho() successfully done");
 
 	fclose(flb);
 	fclose(csv);

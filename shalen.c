@@ -8,6 +8,8 @@
 #include <sys/stat.h>	/* mkdir(2) */
 #include <signal.h>	/* getpid(2) */
 
+#include <stdbool.h>
+
 #include "shalen.h"
 
 char *wd_path;
@@ -18,19 +20,29 @@ int debug;	/* デバッグモードなら1 */
 void *kpreport_worker(void *arg);
 void *lbprofile_worker(void *arg);
 
-/* initialize data_per_time[] */
-void shalen_alloc_resources(void)
+/*
+	リソースを確保する関数
+*/
+bool shalen_alloc_resources(void)
 {
-	;
+	return true;
 }
 
+/*
+	リソースを解放する関数
+	@called 呼び出し元の関数名
+*/
 void shalen_free_resources(const char *called)
 {
 	syslog(LOG_NOTICE, "%s calls shalen_free_resources()\n", called);
 	closelog();
 }
 
-int shalen_init(void)
+/*
+	初期化関数
+	返り値　成功：true　失敗：false
+*/
+bool shalen_init(void)
 {
 	FILE *f = NULL;
 	char path[STR_PATH_MAX];
@@ -47,19 +59,24 @@ int shalen_init(void)
 
 	if(!(f = fopen(path, "w"))){	/* .pidファイルを作成 */
 		syslog(LOG_ERR, "%s cannot open pid file", log_err_prefix(shalen_init));
-		return 1;
+		return false;
 	}
 
 	fprintf(f, "%d", getpid());	/* ここはdaemon(3)の後に実行されないといけない */
 	fclose(f);		/* *.pidファイルをクローズ */
 
-	shalen_alloc_resources();
+	if(shalen_alloc_resources() == false){
+		return false;
+	}
 
 	syslog(LOG_NOTICE, "starting shalend.");
 
-	return 0;
+	return true;
 }
 
+/*
+	終了時に呼び出される関数
+*/
 void shalen_final(void)
 {
 	char pid_path[STR_PATH_MAX];
@@ -70,6 +87,9 @@ void shalen_final(void)
 	shalen_free_resources(__func__);
 }
 
+/*
+	main関数 シグナルはメインスレッドが受信する
+*/
 int main(int argc, char *argv[])
 {
 	int ret, signo;
@@ -79,8 +99,8 @@ int main(int argc, char *argv[])
 	if(argc == 1){
 		wd_path = DEFAULT_WD;
 
-		if(shalen_init()){
-			syslog(LOG_ERR, "%s shalen_init() failed", log_err_prefix(main));
+		if(shalen_init() == false){
+			syslog(LOG_ERR, "%s failed", log_err_prefix(shalen_init));
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -97,8 +117,8 @@ int main(int argc, char *argv[])
 		}
 		wd_path = &argv[1][8];
 
-		if(shalen_init()){
-			syslog(LOG_ERR, "%sshalen_init() failed", log_err_prefix(main));
+		if(shalen_init() == false){
+			syslog(LOG_ERR, "%sshalen_init() failed", log_err_prefix(shalen_init));
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -161,8 +181,6 @@ int main(int argc, char *argv[])
 			}
 		}
 	}
-
-	//syslog(LOG_NOTICE, "shalen loop breaked tos:%d\n", tos);
 
 	pthread_cancel(kpreport);
 	pthread_cancel(lbprofile);
