@@ -1,8 +1,12 @@
 # Makefile
-objs = shalen.o kpreport.o lbprofile.o
+objs = shalen.o kpreport.o lbprofile.o l3miss.o
+lib_path = ./lib
+cmd_path = ./cmd
 
-shalend: Makefile shalen.h $(objs)
-	cc -Wall -o shalend $(objs) -lpthread
+
+# shalend 関連のオブジェクトファイル
+shalend: Makefile shalen.h $(objs) $(lib_path)/libshalend.a
+	cc -Wall -o shalend $(objs) $(lib_path)/libshalend.a -lpthread
 
 shalen.o: shalen.c
 	cc -Wall -c shalen.c
@@ -13,9 +17,17 @@ kpreport.o: kpreport.c
 lbprofile.o: lbprofile.c
 	cc -Wall -c lbprofile.c
 
-analb: analb.c
-	cc -o analb analb.c
+l3miss.o: l3miss.c
+	cc -Wall -c l3miss.c
 
+$(lib_path)/libshalend.a:
+	cd $(lib_path); make
+
+.PHONY: cmd
+cmd:
+	cd $(cmd_path); make
+
+# 各種操作
 install: shalend
 	scp shalend shimada@192.168.141.250:/home/shimada/shalend/
 
@@ -25,3 +37,9 @@ install-all: shalend analb
 
 clean:
 	rm -f shalend *.o *~
+
+clean-all:
+	rm -f shalend *.o
+	cd $(cmd_path); make clean
+	cd $(lib_path); make clean
+

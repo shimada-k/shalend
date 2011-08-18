@@ -26,11 +26,7 @@ void output_csv_pp(FILE *csv, unsigned long long map[][nr_cpus])
 {
 	int i, j;
 
-	puts("hoge");
-
 	fprintf(csv, "ping_pong\n\n");
-
-	puts("hoge2");
 
 	for(i = 0; i < nr_cpus; i++){
 		fprintf(csv, ",CPU%d", i);
@@ -107,19 +103,15 @@ int main(int argc, char *argv[])
 	unsigned long long pp[nr_cpus][nr_cpus], ho[MAX_NR_HOLD];
 	FILE *csv = NULL, *flb = NULL;
 
-	if((csv = fopen("kpreport.csv", "a")) == NULL){
+	if((csv = fopen("../kpreport.csv", "a")) == NULL){
 		exit(EXIT_FAILURE);
 	}
 
-	fprintf(csv, "hogepiyo\n\n");
-
-	if((flb = fopen("lbprofile.lb", "rb")) == NULL){
+	if((flb = fopen("../lbprofile.lb", "rb")) == NULL){
 		exit(EXIT_FAILURE);
 	}
 
-	//analyze_lb_and_store(flb, pp, ho);
-
-	fprintf(csv, "hogehoge\n\n");
+	analyze_lb_and_store(flb, pp, ho);
 
 	puts("analyze_lb_and_store() successfully done");
 

@@ -19,6 +19,7 @@ int debug;	/* デバッグモードなら1 */
 
 void *kpreport_worker(void *arg);
 void *lbprofile_worker(void *arg);
+void *l3miss_worker(void *arg);
 
 /*
 	リソースを確保する関数
@@ -94,7 +95,7 @@ int main(int argc, char *argv[])
 {
 	int ret, signo;
 	sigset_t ss;
-	pthread_t kpreport, lbprofile;
+	pthread_t kpreport, lbprofile, l3miss;
 
 	if(argc == 1){
 		wd_path = DEFAULT_WD;
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
 		wd_path = &argv[1][8];
 
 		if(shalen_init() == false){
-			syslog(LOG_ERR, "%sshalen_init() failed", log_err_prefix(shalen_init));
+			syslog(LOG_ERR, "%s shalen_init() failed", log_err_prefix(shalen_init));
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -139,7 +140,7 @@ int main(int argc, char *argv[])
 			debug = 1;
 		}
 		if(shalen_init()){
-			syslog(LOG_ERR, "%sshalen_init() failed", log_err_prefix(main));
+			syslog(LOG_ERR, "%s shalen_init() failed", log_err_prefix(main));
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -165,11 +166,15 @@ int main(int argc, char *argv[])
 
 	/* スレッドの生成 */
 
-	if(pthread_create(&kpreport, NULL, kpreport_worker, NULL) != 0){
-		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
-	}
+//	if(pthread_create(&kpreport, NULL, kpreport_worker, NULL) != 0){
+//		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
+//	}
 
-	if(pthread_create(&lbprofile, NULL, lbprofile_worker, NULL) != 0){
+//	if(pthread_create(&lbprofile, NULL, lbprofile_worker, NULL) != 0){
+//		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
+//	}
+
+	if(pthread_create(&l3miss, NULL, l3miss_worker, NULL) != 0){
 		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
 	}
 
@@ -182,11 +187,13 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	pthread_cancel(kpreport);
-	pthread_cancel(lbprofile);
+//	pthread_cancel(kpreport);
+//	pthread_cancel(lbprofile);
+	pthread_cancel(l3miss);
 
-	pthread_join(kpreport, NULL);
-	pthread_join(lbprofile, NULL);
+//	pthread_join(kpreport, NULL);
+//	pthread_join(lbprofile, NULL);
+	pthread_join(l3miss, NULL);
 
 	syslog(LOG_NOTICE, "stopping shalend");
 	shalen_final();

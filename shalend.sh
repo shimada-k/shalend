@@ -1,10 +1,12 @@
 #!/bin/sh
 
 KERNEL_TREE=/home/shimada/linux-source-2.6.32/
-SHALEND_WD=/home/shimada/shalend/
+SHALEND_WD=/media/usb0/Programs/repos/ring3/shalend/
 CPUINFO=/proc/cpuinfo
-OUTPUT_CSV="$SHALEND_WD"kpreport.csv
-OUTPUT_LB="$SHALEND_WD"lbprofile.lb
+KPREPORT_CSV="$SHALEND_WD"kpreport.csv
+LBPROFILE_LB="$SHALEND_WD"lbprofile.lb
+L3MISS_CSV="$SHALEND_WD"l3miss.csv
+
 DATA_DIR="$SHALEND_WD"data.`date +%y.%m.%d`/
 
 
@@ -37,11 +39,12 @@ shalen_final()
 
 	cd "$SHALEND_WD"
 
-	./analb
+	"$SHALEND_WD"cmd/analb
 
 #データファイルをディレクトリに移動
-	mv "$OUTPUT_CSV" "$DATA_DIR""$1"_"$ELAPSE".csv
-	mv "$OUTPUT_LB" "$DATA_DIR""$1"_"$ELAPSE".lb
+	mv "$KPREPORT_CSV" "$DATA_DIR""$1"_"$ELAPSE".csv
+	mv "$L3MISS_CSV" "$DATA_DIR""$1"_"$ELAPSE".csv
+	mv "$LBPROFILE_LB" "$DATA_DIR""$1"_"$ELAPSE".lb
 
 #sarファイルから時間範囲指定してテキストファイルに出力する
 	sar -A -s "$2" -e `date "+%T"` -f "$DATA_DIR"output.sar > "$DATA_DIR""$1"_"$ELAPSE".txt
@@ -80,7 +83,7 @@ mkdir "$DATA_DIR"
 sar -P ALL 2 36000 -o "$DATA_DIR"output.sar > /dev/null &
 
 #15から1づつseq(1)の第3引数までループ
-for i in `seq 15 1 48`
+for i in `seq 8 1 9`
 do
     shalen_exec "$i"
 done
