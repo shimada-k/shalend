@@ -3,10 +3,14 @@
 #include <unistd.h>	/* sysconf(3) */
 #include <string.h>	/* memset(3) */
 
-#include "lbprofile.h"
+#include "../lbprofile.h"
 
 struct lbprofile_hdr hdr;
 int nr_cpus;
+
+/*
+	コマンドラインでファイルを指定して、レポートを出力する仕様に変更
+*/
 
 /* たらい回し現象をCSVに出力 */
 void output_csv_ho(FILE *csv, unsigned long long hold[])
@@ -18,6 +22,7 @@ void output_csv_ho(FILE *csv, unsigned long long hold[])
 	for(i = 0; i < MAX_NR_HOLD; i++){
 		fprintf(csv, "%llu,", hold[i]);
 	}
+
 	fprintf(csv, "\n\n");
 }
 
@@ -48,8 +53,9 @@ void output_csv_pp(FILE *csv, unsigned long long map[][nr_cpus])
 }
 
 /* *.lbファイルからstruct lbprofileの配列にデータを取り込む関数 */
-void analyze_lb_and_store(FILE *flb, unsigned long long pp[][nr_cpus], unsigned long long ho[])
+int analyze_lb_and_store(FILE *flb, unsigned long long pp[][nr_cpus], unsigned long long ho[])
 {
+	int counter = 0;
 	struct lbprofile lb, nearly;
 	struct pid_loop lo_pp, lo_ho;
 
@@ -93,25 +99,34 @@ void analyze_lb_and_store(FILE *flb, unsigned long long pp[][nr_cpus], unsigned 
 			}
 		}
 		nearly = lb;
+		counter++;
 	}
+
+	return counter;
 }
 
 int main(int argc, char *argv[])
 {
+	int i, counter;
 	nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
-	//nr_cpus = 8;
 	unsigned long long pp[nr_cpus][nr_cpus], ho[MAX_NR_HOLD];
 	FILE *csv = NULL, *flb = NULL;
 
-	if((csv = fopen("../kpreport.csv", "a")) == NULL){
-		exit(EXIT_FAILURE);
+	if(argc == 2){
+		if((flb = fopen(argv[1], "rb")) == NULL){
+			exit(EXIT_FAILURE);
+		}
+	}
+	else{
+		printf("error:no specified file\n");
+		return 0;
 	}
 
-	if((flb = fopen("../lbprofile.lb", "rb")) == NULL){
-		exit(EXIT_FAILURE);
-	}
+	csv = fopen("analb.csv", "w");
 
-	analyze_lb_and_store(flb, pp, ho);
+	counter = analyze_lb_and_store(flb, pp, ho);
+
+	fprintf(csv, "counter = %d\n\n", counter);
 
 	puts("analyze_lb_and_store() successfully done");
 

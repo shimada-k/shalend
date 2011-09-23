@@ -15,8 +15,6 @@
 char *wd_path;
 int nr_cpus;
 
-int debug;	/* デバッグモードなら1 */
-
 void *kpreport_worker(void *arg);
 void *lbprofile_worker(void *arg);
 void *l3miss_worker(void *arg);
@@ -41,7 +39,7 @@ void shalen_free_resources(const char *called)
 
 /*
 	初期化関数
-	返り値　成功：true　失敗：false
+	return　成功：true　失敗：false
 */
 bool shalen_init(void)
 {
@@ -52,9 +50,7 @@ bool shalen_init(void)
 
 	openlog("shalend", LOG_PID, LOG_DAEMON);
 
-	if(debug == 0){
-		daemon(0, 0);	/* デーモン化　これ以降は子プロセスで実行される */
-	}
+	daemon(0, 0);	/* デーモン化　これ以降は子プロセスで実行される */
 
 	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "shalend.pid");
 
@@ -123,27 +119,6 @@ int main(int argc, char *argv[])
 			exit(EXIT_FAILURE);
 		}
 	}
-	else if(argc == 3){
-
-		FILE *wd = NULL;
-
-		if((wd = fopen(&argv[1][8], "r"))){	/* work_dir="xxx" */
-			fclose(wd);	/* working directry is already exist */
-		}
-		else{
-			if(mkdir(&argv[1][8], 0777) == -1)	/* open working directory */
-				exit(EXIT_FAILURE);
-		}
-		wd_path = &argv[1][8];
-
-		if(strcmp(argv[2], "--debug") == 0){
-			debug = 1;
-		}
-		if(shalen_init()){
-			syslog(LOG_ERR, "%s shalen_init() failed", log_err_prefix(main));
-			exit(EXIT_FAILURE);
-		}
-	}
 	else{
 		syslog(LOG_ERR, "%s invalid argument", log_err_prefix(main));
 		exit(EXIT_FAILURE);
@@ -165,14 +140,13 @@ int main(int argc, char *argv[])
 	}
 
 	/* スレッドの生成 */
+	if(pthread_create(&kpreport, NULL, kpreport_worker, NULL) != 0){
+		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
+	}
 
-//	if(pthread_create(&kpreport, NULL, kpreport_worker, NULL) != 0){
-//		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
-//	}
-
-//	if(pthread_create(&lbprofile, NULL, lbprofile_worker, NULL) != 0){
-//		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
-//	}
+	if(pthread_create(&lbprofile, NULL, lbprofile_worker, NULL) != 0){
+		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
+	}
 
 	if(pthread_create(&l3miss, NULL, l3miss_worker, NULL) != 0){
 		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
@@ -187,12 +161,12 @@ int main(int argc, char *argv[])
 		}
 	}
 
-//	pthread_cancel(kpreport);
-//	pthread_cancel(lbprofile);
+	pthread_cancel(kpreport);
+	pthread_cancel(lbprofile);
 	pthread_cancel(l3miss);
 
-//	pthread_join(kpreport, NULL);
-//	pthread_join(lbprofile, NULL);
+	pthread_join(kpreport, NULL);
+	pthread_join(lbprofile, NULL);
 	pthread_join(l3miss, NULL);
 
 	syslog(LOG_NOTICE, "stopping shalend");

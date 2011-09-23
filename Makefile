@@ -28,12 +28,9 @@ cmd:
 	cd $(cmd_path); make
 
 # 各種操作
-install: shalend
-	scp shalend shimada@192.168.141.250:/home/shimada/shalend/
-
-install-all: shalend analb
-	scp shalend shimada@192.168.141.250:/home/shimada/shalend/
-	scp analb shimada@192.168.141.250:/home/shimada/shalend/
+install: shalend shalend.sh
+	cp shalend ./pkg-root/shalend/usr/bin/
+	cp shalend.sh ./pkg-root/shalend/usr/share/shalend/
 
 clean:
 	rm -f shalend *.o *~

@@ -9,27 +9,67 @@
 
 #include "lib/msr_address.h"
 
-#define USE_NR_MSR	3	/* いくつのMSRを使ってイベントを計測するか */
-#define MAX_RECORDS	900	/* 最大何回計測するか */
+#define USE_NR_MSR	4	/* いくつのMSRを使ってイベントを計測するか */
+#define MAX_RECORDS	1200	/* 最大何回計測するか */
 
 static FILE *tmp_fp[USE_NR_MSR];
 static FILE *csv;
-
-/* 初期化部分とループで読む部分を分ける */
 
 /*
 	前回のデータとの差分を取る関数 ライブラリ側で呼び出される
 	msr_handleに格納される関数（scope==thread or core用）
 	@handle_id mh_ctl.handles[]の添字
 	@val MSRを計測した生データ
-	return true/false
+	return 失敗:-1 成功:0
 */
-bool sub_record_multi(int handle_id, u64 *val)
+int sub_record_single(int handle_id, unsigned long long *val)
+{
+
+	int skip = 0;
+
+	unsigned long long val_last;
+	int num;
+
+	/*-- tmp_fpはcloseすると削除されるので、openとcloseはalloc,freeで行うこととする --*/
+
+	fseek(tmp_fp[handle_id], 0, SEEK_SET);
+
+	/* 過去のvalをtmp_fpから読み込む */
+	if((num = fread(&val_last, sizeof(unsigned long long), 1, tmp_fp[handle_id])) != 1){
+		skip = 1;	/* データがないので今回はtempファイルに書き込むだけ */
+	}
+
+	fseek(tmp_fp[handle_id], 0, SEEK_SET);
+
+	/* 現在のcpu_valを書き込む */
+	fwrite(val, sizeof(unsigned long long), 1, tmp_fp[handle_id]);
+
+	fseek(tmp_fp[handle_id], 0, SEEK_SET);
+
+	/* MSRの回数は増えることはあっても減ることはないのでここは絶対0以上 */
+	*val -= val_last;
+
+	if(skip){
+		return -1;
+	}
+	else{
+		return 0;
+	}
+}
+
+/*
+	前回のデータとの差分を取る関数 ライブラリ側で呼び出される
+	msr_handleに格納される関数（scope==thread or core用）
+	@handle_id mh_ctl.handles[]の添字
+	@val MSRを計測した生データ
+	return 失敗:-1 成功:0
+*/
+int sub_record_multi(int handle_id, unsigned long long *val)
 {
 	int nr_cpus = sysconf(_SC_NPROCESSORS_CONF);
 	int skip = 0;
 
-	u64 val_last[nr_cpus];
+	unsigned long long val_last[nr_cpus];
 	int i;
 	int num;
 
@@ -38,14 +78,14 @@ bool sub_record_multi(int handle_id, u64 *val)
 	fseek(tmp_fp[handle_id], 0, SEEK_SET);
 
 	/* 過去のvalをtmp_fpから読み込む */
-	if((num = fread(val_last, sizeof(u64), nr_cpus, tmp_fp[handle_id])) != nr_cpus){
-		skip = 1;
+	if((num = fread(val_last, sizeof(unsigned long long), nr_cpus, tmp_fp[handle_id])) != nr_cpus){
+		skip = 1;	/* データがないので今回はtempファイルに書き込むだけ */
 	}
 
 	fseek(tmp_fp[handle_id], 0, SEEK_SET);
 
 	/* 現在のcpu_valを書き込む */
-	fwrite(val, sizeof(u64), nr_cpus, tmp_fp[handle_id]);
+	fwrite(val, sizeof(unsigned long long), nr_cpus, tmp_fp[handle_id]);
 
 	fseek(tmp_fp[handle_id], 0, SEEK_SET);
 
@@ -55,13 +95,16 @@ bool sub_record_multi(int handle_id, u64 *val)
 	}
 
 	if(skip){
-		return false;
+		return -1;
 	}
 	else{
-		return true;
+		return 0;
 	}
 }
 
+/*
+	リソースを確保する関数
+*/
 bool l3miss_alloc_resources(void)
 {
 	int i;
@@ -84,15 +127,57 @@ bool l3miss_alloc_resources(void)
 	return true;
 }
 
+/*
+	各種レジスタを設定する関数
+*/
+void set_register(void)
+{
+	int nr_ia32_pmcs, nr_unc_pmcs;
+	union IA32_PERFEVTSELx reg;
+	reg.full = 0;
+
+	/* PerfGlobalCtrlレジスタを設定 */
+	nr_ia32_pmcs = set_IA32_PERF_GLOBAL_CTRL();
+	nr_unc_pmcs = set_UNC_PERF_GLOBAL_CTRL();
+
+	printf("%d ia32_pmcs %d unc_pmcs registered.\n", nr_ia32_pmcs, nr_unc_pmcs);
+
+	/* PERFEVENTSELの設定 */
+
+	reg.split.EvtSel = EVENT_MEM_LOAD_RETIRED_MISS;
+	reg.split.UMASK = UMASK_MEM_LOAD_RETIRED_MISS;
+//	reg.split.EvtSel = EVENT_LONGEST_CACHE_LAT;
+//	reg.split.UMASK = UMASK_LONGEST_CACHE_LAT_MISS;
+
+	reg.split.EN = 1;
+
+	reg.split.USER = 1;
+	reg.split.OS = 0;
+	set_IA32_PERFEVTSEL(IA32_PERFEVENTSEL0, &reg);	/* ユーザ空間のみ */
+
+	reg.split.USER = 0;
+	reg.split.OS = 1;
+	set_IA32_PERFEVTSEL(IA32_PERFEVENTSEL1, &reg);	/* OS空間のみ */
+
+	reg.split.USER = 1;
+	reg.split.OS = 1;
+	set_IA32_PERFEVTSEL(IA32_PERFEVENTSEL2, &reg);	/* ユーザ・OS両方 */
+
+	//set_UNC_PERFEVTSEL_handy(IA32_PERFEVENTSEL0, UMASK_LONGEST_CACHE_LAT_MISS, EVENT_LONGEST_CACHE_LAT);
+	//set_UNC_PERFEVTSEL_handy(IA32_PERFEVENTSEL1, UMASK_LONGEST_CACHE_LAT_REFERENCE, EVENT_LONGEST_CACHE_LAT);
+
+
+	/* UNC_PERFEVENTSELの設定 */
+
+	set_UNC_PERFEVTSEL_handy(MSR_UNCORE_PERFEVTSEL0, UNC_L3_MISS_READ_UMASK, UNC_L3_MISS_EVTNUM);
+}
+
 bool l3miss_init(void)
 {
+	set_register();
+
 	if((l3miss_alloc_resources()) == false){	/* tempファイルをオープンするだけ */
 		syslog(LOG_ERR, "%s failed", log_err_prefix(l3miss_alloc_resources));
-		return false;
-	}
-
-	if(init_handle_controller(csv, MAX_RECORDS, USE_NR_MSR) == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(init_handle_controller));
 		return false;
 	}
 
@@ -123,46 +208,53 @@ bool l3miss_free_resources(void)
 */
 void l3miss_final(void *arg)
 {
+	int i;
+
+	flushHandleRecords();
+
 	if(l3miss_free_resources() == false){
 		syslog(LOG_ERR, "%s failed", log_err_prefix(l3miss_free_resources));
 		exit(EXIT_FAILURE);
 	}
 
+	for(i = 0; i < USE_NR_MSR; i++){
+		deactivateHandle((MHANDLE *)arg + i);
+	}
+
 	/* 後始末 */
-	term_handle_controller(NULL);
+	termHandleController();
 }
 
 void *l3miss_worker(void *arg)
 {
-	int i;
-	MHANDLE *handles[USE_NR_MSR];
-	enum msr_scope scope = thread;
+	MHANDLE *handles = NULL;
 
 	if(l3miss_init() == false){
 		syslog(LOG_ERR, "%s failed", log_err_prefix(l3miss_init));
 	}
 
-	for(i = 0; i < USE_NR_MSR; i++){
-		if((handles[i] = alloc_handle()) == NULL){
-			syslog(LOG_ERR, "%s failed", log_err_prefix(alloc_handle));
-		}
+	if((handles = initHandleController(csv, MAX_RECORDS, USE_NR_MSR)) == NULL){
+		syslog(LOG_ERR, "%s failed", log_err_prefix(init_handle_controller));
+		return false;
 	}
 
-	/* PERF_GLOBAL_CTL、PERFEVTSELxはinit_msr側で設定済み */
-
-	if(activate_handle(handles[0], "MEM_LOAD_RETIRED.MISS USER only", scope, IA32_PMC0, sub_record_multi) == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(activate_handle));
+	if(activateHandle(&handles[0], "MEM_LOAD_RETIRED.MISS USER only", MSR_SCOPE_THREAD, IA32_PMC0, sub_record_multi) == -1){
+		syslog(LOG_ERR, "%s failed", log_err_prefix(activateHandle));
 	}
 
-	if(activate_handle(handles[1], "MEM_LOAD_RETIRED.MISS OS only", scope, IA32_PMC1, sub_record_multi) == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(activate_handle));
+	if(activateHandle(&handles[1], "MEM_LOAD_RETIRED.MISS OS only", MSR_SCOPE_THREAD, IA32_PMC1, sub_record_multi) == -1){
+		syslog(LOG_ERR, "%s failed", log_err_prefix(activateHandle));
 	}
 
-	if(activate_handle(handles[2], "MEM_LOAD_RETIRED.MISS both ring", scope, IA32_PMC2, sub_record_multi) == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(activate_handle));
+	if(activateHandle(&handles[2], "MEM_LOAD_RETIRED.MISS both ring", MSR_SCOPE_THREAD, IA32_PMC2, sub_record_multi) == -1){
+		syslog(LOG_ERR, "%s failed", log_err_prefix(activateHandle));
 	}
 
-	pthread_cleanup_push(l3miss_final, NULL);
+	if(activateHandle(&handles[3], "UNC_L3_MISS.READ", MSR_SCOPE_PACKAGE, MSR_UNCORE_PMC0, sub_record_single) == -1){
+		syslog(LOG_ERR, "%s failed", log_err_prefix(activateHandle));
+	}
+
+	pthread_cleanup_push(l3miss_final, (void *)handles);
 
 	while(1){
 
@@ -170,7 +262,7 @@ void *l3miss_worker(void *arg)
 
 		sleep(1);
 
-		if(read_msr() == false){	/* MAX_RECORDS以上計測した */
+		if(getEventValues() == -1){	/* MAX_RECORDS以上計測した */
 			puts("time over");
 			break;
 		}

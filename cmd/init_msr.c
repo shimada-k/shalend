@@ -18,10 +18,10 @@ int main(int argc, char *argv[])
 
 	/* PERFEVENTSELの設定 */
 
-//	reg.split.EvtSel = EVENT_MEM_LOAD_RETIRED_MISS;
-//	reg.split.UMASK = UMASK_MEM_LOAD_RETIRED_MISS;
-	reg.split.EvtSel = EVENT_LONGEST_CACHE_LAT;
-	reg.split.UMASK = UMASK_LONGEST_CACHE_LAT_MISS;
+	reg.split.EvtSel = EVENT_MEM_LOAD_RETIRED_MISS;
+	reg.split.UMASK = UMASK_MEM_LOAD_RETIRED_MISS;
+//	reg.split.EvtSel = EVENT_LONGEST_CACHE_LAT;
+//	reg.split.UMASK = UMASK_LONGEST_CACHE_LAT_MISS;
 
 	reg.split.EN = 1;
 
