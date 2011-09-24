@@ -103,10 +103,14 @@ int search_sysfs_f(char *base_path, int searched)
 		sprintf(full_path, "%s/%s", base_path, p->d_name);	/* フルパスの文字列を生成 */
 
 		stat(full_path, &buf);
-		//printf("p->d_name:%s mode:%d\n", p->d_name, buf.st_mode);
-
+#ifdef DEBUG
+		printf("p->d_name:%s mode:%d\n", p->d_name, buf.st_mode);	/* debug */
+#endif
 		if((buf.st_mode & S_IFMT) == S_IFDIR){	/* ディレクトリだったら再帰 */
-			//printf("\tp->d_name:%s mode:%d\n", p->d_name, buf.st_mode);
+
+#ifdef DEBUG
+			printf("\tp->d_name:%s mode:%d\n", p->d_name, buf.st_mode);	/* debug */
+#endif
 			f += search_sysfs_f(full_path, searched);
 		}
 		else{
@@ -273,7 +277,9 @@ void add_record(char *buf, int entry_idx)
 		if(interrupt >= MAX_RECORD){	/* flat_recordsがオーバーフロー */
 			records2csv();
 			kpreport_final((void *)NULL);
+#ifdef DEBUG
 			puts("timeout");
+#endif
 			exit(EXIT_SUCCESS);
 		}
 		else{
@@ -340,7 +346,7 @@ void records2csv(void)
 void *kpreport_worker(void *arg)
 {
 	if(kpreport_init() == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(kpreport_init));
+		ERR_MESSAGE("%s failed", log_err_prefix(kpreport_init));
 	}
 
 	pthread_cleanup_push(kpreport_final, NULL);

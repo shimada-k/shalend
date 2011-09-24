@@ -50,7 +50,7 @@ bool lbprofile_alloc_resources(void)
 */
 bool lbprofile_free_resources(const char *called)
 {
-	syslog(LOG_NOTICE, "%s calls lbprofile_free_resources()\n", called);
+	NOTICE_MESSAGE("%s calls lbprofile_free_resources()\n", called);
 
 	if(close(dev) < 0){
 		return false;
@@ -78,7 +78,7 @@ void put_hdr(struct lbprofile_hdr *hdr)
 	fseek(flb, 0L, SEEK_SET);
 
 	if(fwrite(hdr, sizeof(struct lbprofile_hdr), 1, flb) != 1){
-		syslog(LOG_ERR, "%s fwrite(3) failed", log_err_prefix(put_hdr));
+		ERR_MESSAGE("%s fwrite(3) failed", log_err_prefix(put_hdr));
 	}
 
 	fseek(flb, pos, SEEK_SET);	/* 記録されたオフセットに戻す */
@@ -94,7 +94,7 @@ void lbprofile_final(void *arg)
 	ssize_t r_size;
 
 	if(ioctl(dev, IOC_USEREND_NOTIFY, &piece) < 0){
-		syslog(LOG_ERR, "%s ioctl(2) failed", log_err_prefix(lbprofile_final));
+		ERR_MESSAGE("%s ioctl(2) failed", log_err_prefix(lbprofile_final));
 		lbprofile_free_resources(__func__);
 		exit(EXIT_FAILURE);
 	}
@@ -106,16 +106,16 @@ void lbprofile_final(void *arg)
 		if((nr_locked_be = piece / GRAN_LB)){	/* nr_locked_be回だけread(2)を回さないといけない */
 			unsigned int i;
 
-			syslog(LOG_NOTICE, "nr_locked_be = %d\n", nr_locked_be);
+			NOTICE_MESSAGE("nr_locked_be = %d\n", nr_locked_be);
 
 			for(i = 0; i < nr_locked_be; i++){
 				if((r_size = read(dev, hndlr_buf, sizeof(struct lbprofile) * GRAN_LB)) != sizeof(struct lbprofile) * GRAN_LB){
-					syslog(LOG_ERR, "%s read(2) failed. lbentries was not loaded r_size is %d\n",
+					ERR_MESSAGE("%s read(2) failed. lbentries was not loaded r_size is %d\n",
 						log_err_prefix(lbprofile_final), (int)r_size);
 				}
 
 				if(fwrite(hndlr_buf, sizeof(struct lbprofile), GRAN_LB, flb) != GRAN_LB){
-					syslog(LOG_ERR, "%s fwrite(3) failed.", log_err_prefix(lbprofile_final));
+					ERR_MESSAGE("%s fwrite(3) failed.", log_err_prefix(lbprofile_final));
 				}
 				hdr.nr_lbprofile += GRAN_LB;
 			}
@@ -128,11 +128,11 @@ void lbprofile_final(void *arg)
 
 		/* 端数の分だけ追加でread(2)する */
 		if((r_size = read(dev, hndlr_buf, sizeof(struct lbprofile) * tip)) != sizeof(struct lbprofile) * tip){
-			syslog(LOG_ERR, "%s read(2) failed. lbentries was not loaded r_size is %d\n", log_err_prefix(lbprofile_final), (int)r_size);
+			ERR_MESSAGE("%s read(2) failed. lbentries was not loaded r_size is %d\n", log_err_prefix(lbprofile_final), (int)r_size);
 		}
 
 		if(fwrite(hndlr_buf, sizeof(struct lbprofile), tip, flb) != tip){
-			syslog(LOG_ERR, "%s fwrite(3) failed.", log_err_prefix(lbprofile_final));
+			ERR_MESSAGE("%s fwrite(3) failed.", log_err_prefix(lbprofile_final));
 		}
 		hdr.nr_lbprofile += tip;
 	}
@@ -155,14 +155,14 @@ void lbprofile_handler(int sig)
 	ssize_t s_read;
 
 	if((s_read = read(dev, hndlr_buf, sizeof(struct lbprofile) * GRAN_LB)) != sizeof(struct lbprofile) * GRAN_LB){
-		syslog(LOG_ERR, "%s read(2) failed. lbentries was not loaded s_read = %d\n", log_err_prefix(lbprofile_handler), (int)s_read);
+		ERR_MESSAGE("%s read(2) failed. lbentries was not loaded s_read = %d\n", log_err_prefix(lbprofile_handler), (int)s_read);
 		lbprofile_free_resources(__func__);
 		exit(EXIT_FAILURE);
 	}
 
 	if(fwrite(hndlr_buf, sizeof(struct lbprofile), GRAN_LB, flb) != GRAN_LB){
+		ERR_MESSAGE("%s fwrite(3) failed", log_err_prefix(lbprofile_handler));
 		lbprofile_free_resources(__func__);
-		syslog(LOG_ERR, "%s fwrite(3) failed", log_err_prefix(lbprofile_handler));
 		exit(EXIT_FAILURE);
 	}
 
@@ -178,7 +178,7 @@ void lbprofile_handler(int sig)
 bool lbprofile_init(void)
 {
 	if(lbprofile_alloc_resources() == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(lbprofile_alloc_resources));
+		ERR_MESSAGE("%s failed", log_err_prefix(lbprofile_alloc_resources));
 		return false;
 	}
 
@@ -188,17 +188,17 @@ bool lbprofile_init(void)
 	syslog(LOG_DEBUG, "IOC_SETSIGNO:%d IOC_SETGRAN:%d IOC_SETPID:%d\n", IOC_SETSIGNO, IOC_SETGRAN, IOC_SETPID);
 
 	if(ioctl(dev, IOC_SETSIGNO, SIGUSR1) < 0){
-		syslog(LOG_ERR, "%s IOC_SETSIGNO", log_err_prefix(lbprofile_init));
+		ERR_MESSAGE("%s IOC_SETSIGNO", log_err_prefix(lbprofile_init));
 		return false;
 	}
 
 	if(ioctl(dev, IOC_SETGRAN, GRAN_LB) < 0){
-		syslog(LOG_ERR, "%s IOC_SETGRAN", log_err_prefix(lbprofile_init));
+		ERR_MESSAGE("%s IOC_SETGRAN", log_err_prefix(lbprofile_init));
 		return false;
 	}
 
 	if(ioctl(dev, IOC_SETPID, (int)getpid()) < 0){
-		syslog(LOG_ERR, "%s IOC_SETPID", log_err_prefix(lbprofile_init));
+		ERR_MESSAGE("%s IOC_SETPID", log_err_prefix(lbprofile_init));
 		return false;
 	}
 
@@ -212,7 +212,7 @@ bool lbprofile_init(void)
 void *lbprofile_worker(void *arg)
 {
 	if(lbprofile_init() == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(lbprofile_init));
+		ERR_MESSAGE("%s failed", log_err_prefix(lbprofile_init));
 	}
 
 	pthread_cleanup_push(lbprofile_final, NULL);
@@ -223,7 +223,7 @@ void *lbprofile_worker(void *arg)
 		/* will recieve signal SIGUSR1, and call lbprofile_handler() */
 	}
 
-	syslog(LOG_NOTICE, "lbprofile loop breaked\n");
+	NOTICE_MESSAGE("lbprofile loop breaked\n");
 
 	pthread_exit(NULL);
 	pthread_cleanup_pop(1);

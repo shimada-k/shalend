@@ -12,6 +12,12 @@
 
 #include "shalen.h"
 
+/*
+	DEBUGオプションを実装する
+	MakefileでDEBUGオプション付きでコンパイルすると標準出力にメッセージを出すようにする
+	逆に何もなかったら、デーモンになって、syslogに出力する
+*/
+
 char *wd_path;
 int nr_cpus;
 
@@ -33,7 +39,7 @@ bool shalen_alloc_resources(void)
 */
 void shalen_free_resources(const char *called)
 {
-	syslog(LOG_NOTICE, "%s calls shalen_free_resources()\n", called);
+	NOTICE_MESSAGE("%s calls shalen_free_resources()\n", called);
 	closelog();
 }
 
@@ -50,12 +56,14 @@ bool shalen_init(void)
 
 	openlog("shalend", LOG_PID, LOG_DAEMON);
 
-	daemon(0, 0);	/* デーモン化　これ以降は子プロセスで実行される */
+#ifndef DEBUG
+	daemon(0, 0);	/* デバッグモードでなければデーモン化　これ以降は子プロセスで実行される */
+#endif
 
 	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "shalend.pid");
 
 	if(!(f = fopen(path, "w"))){	/* .pidファイルを作成 */
-		syslog(LOG_ERR, "%s cannot open pid file", log_err_prefix(shalen_init));
+		ERR_MESSAGE("%s cannot open pid file", log_err_prefix(shalen_init));
 		return false;
 	}
 
@@ -66,7 +74,8 @@ bool shalen_init(void)
 		return false;
 	}
 
-	syslog(LOG_NOTICE, "starting shalend.");
+	NOTICE_MESSAGE("starting shalend.");
+	//syslog(LOG_NOTICE, "starting shalend.");
 
 	return true;
 }
@@ -97,7 +106,7 @@ int main(int argc, char *argv[])
 		wd_path = DEFAULT_WD;
 
 		if(shalen_init() == false){
-			syslog(LOG_ERR, "%s failed", log_err_prefix(shalen_init));
+			ERR_MESSAGE("%s failed", log_err_prefix(shalen_init));
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -115,12 +124,12 @@ int main(int argc, char *argv[])
 		wd_path = &argv[1][8];
 
 		if(shalen_init() == false){
-			syslog(LOG_ERR, "%s shalen_init() failed", log_err_prefix(shalen_init));
+			ERR_MESSAGE("%s shalen_init() failed", log_err_prefix(shalen_init));
 			exit(EXIT_FAILURE);
 		}
 	}
 	else{
-		syslog(LOG_ERR, "%s invalid argument", log_err_prefix(main));
+		ERR_MESSAGE("%s invalid argument", log_err_prefix(main));
 		exit(EXIT_FAILURE);
 	}
 
@@ -141,21 +150,21 @@ int main(int argc, char *argv[])
 
 	/* スレッドの生成 */
 	if(pthread_create(&kpreport, NULL, kpreport_worker, NULL) != 0){
-		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
+		ERR_MESSAGE("%s pthread_create() failed", log_err_prefix(main));
 	}
 
 	if(pthread_create(&lbprofile, NULL, lbprofile_worker, NULL) != 0){
-		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
+		ERR_MESSAGE("%s pthread_create() failed", log_err_prefix(main));
 	}
 
 	if(pthread_create(&l3miss, NULL, l3miss_worker, NULL) != 0){
-		syslog(LOG_ERR, "%s pthread_create() failed", log_err_prefix(main));
+		ERR_MESSAGE("%s pthread_create() failed", log_err_prefix(main));
 	}
 
 	while(1){
 		if(sigwait(&ss, &signo) == 0){
 			if(signo == SIGTERM){
-				syslog(LOG_NOTICE, "shalend:sigterm recept\n");
+				NOTICE_MESSAGE("shalend:sigterm recept\n");
 				break;
 			}
 		}
@@ -169,7 +178,8 @@ int main(int argc, char *argv[])
 	pthread_join(lbprofile, NULL);
 	pthread_join(l3miss, NULL);
 
-	syslog(LOG_NOTICE, "stopping shalend");
+	NOTICE_MESSAGE("stopping shalend");
+
 	shalen_final();
 
 	return 0;

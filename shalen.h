@@ -14,3 +14,18 @@ extern char *wd_path;
 
 #define log_err_prefix(func_name)	__FILE__ "::" #func_name
 
+#ifdef DEBUG
+#define ERR_MESSAGE(...)		\
+	printf(__VA_ARGS__)
+#else
+#define ERR_MESSAGE(...)		\
+	syslog(LOG_ERR, __VA_ARGS__)
+#endif
+
+#ifdef DEBUG
+#define NOTICE_MESSAGE(...)		\
+	printf(__VA_ARGS__)
+#else
+#define NOTICE_MESSAGE(...)		\
+	syslog(LOG_NOTICE, __VA_ARGS__)
+#endif

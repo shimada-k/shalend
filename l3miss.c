@@ -110,13 +110,12 @@ bool l3miss_alloc_resources(void)
 	int i;
 	char path[STR_PATH_MAX];
 
-#if 1
 	snprintf(path, STR_PATH_MAX, "%s%s", wd_path, "l3miss.csv");
 
 	if(!(csv = fopen(path, "w+"))){	/* l3miss.csvを作成 */
 		;	/* エラー */
 	}
-#endif
+
 	/* tempファイルをオープン */
 	for(i = 0; i < USE_NR_MSR; i++){
 		if((tmp_fp[i] = tmpfile()) == NULL){
@@ -140,7 +139,9 @@ void set_register(void)
 	nr_ia32_pmcs = set_IA32_PERF_GLOBAL_CTRL();
 	nr_unc_pmcs = set_UNC_PERF_GLOBAL_CTRL();
 
+#ifdef DEBUG
 	printf("%d ia32_pmcs %d unc_pmcs registered.\n", nr_ia32_pmcs, nr_unc_pmcs);
+#endif
 
 	/* PERFEVENTSELの設定 */
 
@@ -177,7 +178,7 @@ bool l3miss_init(void)
 	set_register();
 
 	if((l3miss_alloc_resources()) == false){	/* tempファイルをオープンするだけ */
-		syslog(LOG_ERR, "%s failed", log_err_prefix(l3miss_alloc_resources));
+		ERR_MESSAGE("%s failed", log_err_prefix(l3miss_alloc_resources));
 		return false;
 	}
 
@@ -213,7 +214,7 @@ void l3miss_final(void *arg)
 	flushHandleRecords();
 
 	if(l3miss_free_resources() == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(l3miss_free_resources));
+		ERR_MESSAGE("%s failed", log_err_prefix(l3miss_free_resources));
 		exit(EXIT_FAILURE);
 	}
 
@@ -230,28 +231,28 @@ void *l3miss_worker(void *arg)
 	MHANDLE *handles = NULL;
 
 	if(l3miss_init() == false){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(l3miss_init));
+		ERR_MESSAGE("%s failed", log_err_prefix(l3miss_init));
 	}
 
 	if((handles = initHandleController(csv, MAX_RECORDS, USE_NR_MSR)) == NULL){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(init_handle_controller));
+		ERR_MESSAGE("%s failed", log_err_prefix(init_handle_controller));
 		return false;
 	}
 
 	if(activateHandle(&handles[0], "MEM_LOAD_RETIRED.MISS USER only", MSR_SCOPE_THREAD, IA32_PMC0, sub_record_multi) == -1){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(activateHandle));
+		ERR_MESSAGE("%s failed", log_err_prefix(activateHandle));
 	}
 
 	if(activateHandle(&handles[1], "MEM_LOAD_RETIRED.MISS OS only", MSR_SCOPE_THREAD, IA32_PMC1, sub_record_multi) == -1){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(activateHandle));
+		ERR_MESSAGE("%s failed", log_err_prefix(activateHandle));
 	}
 
 	if(activateHandle(&handles[2], "MEM_LOAD_RETIRED.MISS both ring", MSR_SCOPE_THREAD, IA32_PMC2, sub_record_multi) == -1){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(activateHandle));
+		ERR_MESSAGE("%s failed", log_err_prefix(activateHandle));
 	}
 
 	if(activateHandle(&handles[3], "UNC_L3_MISS.READ", MSR_SCOPE_PACKAGE, MSR_UNCORE_PMC0, sub_record_single) == -1){
-		syslog(LOG_ERR, "%s failed", log_err_prefix(activateHandle));
+		ERR_MESSAGE("%s failed", log_err_prefix(activateHandle));
 	}
 
 	pthread_cleanup_push(l3miss_final, (void *)handles);
@@ -263,7 +264,10 @@ void *l3miss_worker(void *arg)
 		sleep(1);
 
 		if(getEventValues() == -1){	/* MAX_RECORDS以上計測した */
+#ifdef DEBUG
 			puts("time over");
+#endif
+
 			break;
 		}
 	}
